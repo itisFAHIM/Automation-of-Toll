@@ -1,127 +1,201 @@
-import { useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  ActivityIndicator,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
-type Bridge = {
-  id: number;
-  name: string;
-  location: string;
-  is_active: boolean;
-  status: string;
-  status_message: string;
-};
+export default function DashboardScreen() {
+  const router = useRouter();
 
-export default function HomeScreen() {
-  const [bridges, setBridges] = useState<Bridge[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetch('http://192.168.0.101:8000/api/bridges/')
-      .then((res) => res.json())
-      .then((data) => {
-        setBridges(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.log('Error:', err);
-        setLoading(false);
-      });
-  }, []);
-
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#4ade80" />
-        <Text style={{ color: 'white', marginTop: 10 }}>
-          Loading bridges...
-        </Text>
-      </View>
-    );
-  }
+  const menuItems = [
+    {
+      id: 'pay-toll',
+      title: 'Pay Toll',
+      subtitle: 'Purchase a new toll pass',
+      icon: 'card-outline' as const,
+      color: '#3b82f6', // Blue
+      route: '/pay-toll',
+    },
+    {
+      id: 'active-passes',
+      title: 'Active Passes',
+      subtitle: 'Show QR to operator',
+      icon: 'qr-code-outline' as const,
+      color: '#10b981', // Green
+      route: '/passes',
+    },
+    {
+      id: 'history',
+      title: 'Payment History',
+      subtitle: 'View your past trips',
+      icon: 'receipt-outline' as const,
+      color: '#8b5cf6', // Purple
+      route: '/history',
+    },
+    {
+      id: 'vehicles',
+      title: 'My Vehicles',
+      subtitle: 'Manage your cars',
+      icon: 'car-sport-outline' as const,
+      color: '#f59e0b', // Amber
+      route: '/my-vehicles',
+    },
+    {
+      id: 'bridge-status',
+      title: 'Bridge Status',
+      subtitle: 'Current operational info',
+      icon: 'map-outline' as const,
+      color: '#ec4899', // Pink
+      route: '/bridge-status',
+    },
+  ];
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>🚗 Smart Toll System</Text>
-      <Text style={styles.subtitle}>Bridges</Text>
+    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.greeting}>Welcome back,</Text>
+          <Text style={styles.driverName}>Driver</Text>
+        </View>
+        <View style={{ flexDirection: 'row', gap: 12 }}>
+          <TouchableOpacity style={styles.profileBtn}>
+            <Ionicons name="person-circle-outline" size={40} color="#fff" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.logoutBtn} onPress={() => router.replace('/login')}>
+            <Ionicons name="log-out-outline" size={32} color="#ef4444" />
+          </TouchableOpacity>
+        </View>
+      </View>
 
-      <FlatList
-        data={bridges}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => (
-          <View style={styles.card}>
-            <Text style={styles.name}>{item.name}</Text>
-            <Text style={styles.location}>{item.location}</Text>
+      <View style={styles.statsContainer}>
+        <View style={styles.statBox}>
+          <Text style={styles.statValue}>2</Text>
+          <Text style={styles.statLabel}>Active Passes</Text>
+        </View>
+        <View style={styles.statBox}>
+          <Text style={styles.statValue}>4</Text>
+          <Text style={styles.statLabel}>Total Trips</Text>
+        </View>
+      </View>
 
-            <Text style={item.is_active ? styles.active : styles.inactive}>
-              {item.is_active ? 'Active' : 'Unavailable'}
-            </Text>
+      <Text style={styles.sectionTitle}>Dashboard</Text>
 
-            {item.status_message ? (
-              <Text style={styles.message}>{item.status_message}</Text>
-            ) : null}
-          </View>
-        )}
-      />
-    </View>
+      <View style={styles.grid}>
+        {menuItems.map((item) => (
+          <TouchableOpacity
+            key={item.id}
+            style={styles.gridItem}
+            activeOpacity={0.7}
+            onPress={() => router.push(item.route as any)}
+          >
+            <View style={[styles.iconContainer, { backgroundColor: `${item.color}20` }]}>
+              <Ionicons name={item.icon} size={32} color={item.color} />
+            </View>
+            <Text style={styles.itemTitle}>{item.title}</Text>
+            <Text style={styles.itemSubtitle}>{item.subtitle}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f172a',
-    padding: 20,
+    backgroundColor: '#0f172a', // Sleek dark slate
+  },
+  scrollContent: {
+    padding: 24,
     paddingTop: 60,
+    paddingBottom: 40,
   },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#0f172a',
+    marginBottom: 30,
   },
-  title: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: '#fff',
-    marginBottom: 10,
-  },
-  subtitle: {
-    fontSize: 18,
+  greeting: {
+    fontSize: 16,
     color: '#94a3b8',
-    marginBottom: 20,
   },
-  card: {
-    backgroundColor: '#1e293b',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-  },
-  name: {
-    fontSize: 18,
-    fontWeight: '600',
+  driverName: {
+    fontSize: 28,
+    fontWeight: '800',
     color: '#fff',
-  },
-  location: {
-    color: '#cbd5f5',
     marginTop: 4,
   },
-  active: {
-    color: '#22c55e',
-    marginTop: 8,
-    fontWeight: '600',
+  profileBtn: {
+    padding: 2,
   },
-  inactive: {
-    color: '#ef4444',
-    marginTop: 8,
-    fontWeight: '600',
+  logoutBtn: {
+    padding: 2,
+    marginLeft: 10,
+    justifyContent: 'center',
   },
-  message: {
-    color: '#e2e8f0',
-    marginTop: 6,
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 32,
+    gap: 16,
+  },
+  statBox: {
+    flex: 1,
+    backgroundColor: '#1e293b',
+    padding: 20,
+    borderRadius: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  statValue: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#38bdf8', // Light blue accent
+  },
+  statLabel: {
+    fontSize: 14,
+    color: '#cbd5e1',
+    marginTop: 4,
+    fontWeight: '500',
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 20,
+  },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+    justifyContent: 'space-between',
+  },
+  gridItem: {
+    width: '47%',
+    backgroundColor: '#1e293b',
+    padding: 20,
+    borderRadius: 20,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  iconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  itemTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 4,
+  },
+  itemSubtitle: {
+    fontSize: 12,
+    color: '#94a3b8',
+    lineHeight: 16,
   },
 });
