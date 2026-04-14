@@ -7,23 +7,32 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: '#f3f4f6',
-          borderTopColor: '#d1d5db',
+          backgroundColor: '#0f172a', // Dark matching background
+          borderTopColor: '#334155',
+          borderTopWidth: 1,
+          height: 60,
+          paddingBottom: 8,
+          paddingTop: 8,
         },
-        tabBarActiveTintColor: '#111827',
-        tabBarInactiveTintColor: '#6b7280',
+        tabBarActiveTintColor: '#10b981', // Neon green accent
+        tabBarInactiveTintColor: '#64748b',
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '600'
+        }
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
+          headerTitle: 'Dashboard',
           title: 'Home',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home" size={size} color={color} />
           ),
         }}
       />
-
+      
       <Tabs.Screen
         name="vehicles"
         options={{

@@ -7,8 +7,12 @@ from vehicles.models import Vehicle
 from .serializers import BridgeSerializer
 
 
-# ✅ Existing Bridge List API (YOU LOST THIS BEFORE)
-class BridgeListAPIView(generics.ListAPIView):
+# ✅ Bridge List & Creation API
+class BridgeListCreateAPIView(generics.ListCreateAPIView):
+    queryset = Bridge.objects.all().order_by('id')
+    serializer_class = BridgeSerializer
+
+class BridgeRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Bridge.objects.all()
     serializer_class = BridgeSerializer
 
@@ -45,3 +49,21 @@ class TollCalculateAPIView(APIView):
 
         except TollRate.DoesNotExist:
             return Response({"error": "Toll rate not set for this vehicle type"}, status=404)
+
+from .serializers import TollRateSerializer
+
+# ✅ Toll Rate CRUD API
+class TollRateListCreateAPIView(generics.ListCreateAPIView):
+    serializer_class = TollRateSerializer
+
+    def get_queryset(self):
+        bridge_id = self.kwargs['bridge_id']
+        return TollRate.objects.filter(bridge_id=bridge_id)
+
+    def perform_create(self, serializer):
+        bridge_id = self.kwargs['bridge_id']
+        serializer.save(bridge_id=bridge_id)
+
+class TollRateRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = TollRate.objects.all()
+    serializer_class = TollRateSerializer
