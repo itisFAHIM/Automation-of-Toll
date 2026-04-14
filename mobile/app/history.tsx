@@ -10,6 +10,7 @@ type PaymentHistory = {
   amount: string;
   payment_method: string;
   status: string;
+  pass_status?: string;
   transaction_id: string;
   paid_at: string;
 };
@@ -76,7 +77,7 @@ export default function HistoryScreen() {
                   <Text style={styles.detailText}>{item.payment_method.toUpperCase()}</Text>
                 </View>
                 <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{item.status.toUpperCase()}</Text>
+                  <Text style={styles.badgeText}>{item.pass_status ? item.pass_status.toUpperCase() : item.status.toUpperCase()}</Text>
                 </View>
               </View>
               <Text style={styles.txnText}>TXN: {item.transaction_id}</Text>

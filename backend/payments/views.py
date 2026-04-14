@@ -84,14 +84,29 @@ class ProcessPaymentAPIView(APIView):
     def get(self, request):
         # Allow viewing payment history
         payments = Payment.objects.filter(toll_pass__user=request.user).order_by('-paid_at')
-        data = [{
-            "id": p.id,
-            "bridge": p.toll_pass.bridge.name,
-            "vehicle": p.toll_pass.vehicle.registration_number,
-            "amount": p.amount,
-            "payment_method": p.payment_method,
-            "status": p.status,
-            "transaction_id": p.transaction_id,
-            "paid_at": p.paid_at
-        } for p in payments]
+        
+        from django.utils import timezone
+        now = timezone.now()
+        data = []
+        for p in payments:
+            tpass = p.toll_pass
+            current_pass_status = tpass.status
+            if current_pass_status == 'active' and now > tpass.expires_at:
+                current_pass_status = 'expired'
+                tpass.status = 'expired'
+                tpass.save(update_fields=['status'])
+
+            data.append({
+                "id": p.id,
+                "bridge": tpass.bridge.name,
+                "vehicle": tpass.vehicle.registration_number,
+                "amount": p.amount,
+                "payment_method": p.payment_method,
+                "status": p.status,
+                "pass_status": current_pass_status,
+                "renewal_status": tpass.renewal_status,
+                "transaction_id": p.transaction_id,
+                "token": str(tpass.token),
+                "paid_at": p.paid_at
+            })
         return Response(data)

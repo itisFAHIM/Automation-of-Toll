@@ -23,6 +23,13 @@ export default function EmployeeLayout() {
           tabBarIcon: ({ color }) => <Ionicons name="scan" size={24} color={color} /> 
         }} 
       />
+      <Tabs.Screen 
+        name="renewals" 
+        options={{ 
+          title: 'Requests', 
+          tabBarIcon: ({ color }) => <Ionicons name="sync-circle-outline" size={24} color={color} /> 
+        }} 
+      />
     </Tabs>
   );
 }
