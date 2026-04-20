@@ -1,7 +1,7 @@
 from rest_framework import generics
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.response import Response
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.contrib.auth.models import User
 from .serializers import RegisterSerializer, UserSerializer
 
@@ -12,10 +12,36 @@ class RegisterView(generics.CreateAPIView):
 
 class ProfileView(generics.RetrieveUpdateAPIView):
     permission_classes = (IsAuthenticated,)
+    parser_classes = (MultiPartParser, FormParser, JSONParser)
     serializer_class = UserSerializer
 
     def get_object(self):
         return self.request.user
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+
+    def partial_update(self, request, *args, **kwargs):
+        user = request.user
+        # Update User fields
+        user.first_name = request.data.get('first_name', user.first_name)
+        user.last_name = request.data.get('last_name', user.last_name)
+        user.email = request.data.get('email', user.email)
+        user.save()
+
+        # Handle profile picture upload
+        if 'profile_picture' in request.FILES:
+            if not hasattr(user, 'profile'):
+                from .models import UserProfile
+                UserProfile.objects.create(user=user, role='driver')
+            user.profile.profile_picture = request.FILES['profile_picture']
+            user.profile.save()
+            user.profile.refresh_from_db()
+
+        serializer = self.get_serializer(user)
+        return Response(serializer.data)
 
 
 class PendingEmployeesAPIView(generics.ListAPIView):
