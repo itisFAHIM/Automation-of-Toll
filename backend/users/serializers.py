@@ -41,18 +41,48 @@ class UserSerializer(serializers.ModelSerializer):
 
 class RegisterSerializer(serializers.ModelSerializer):
     requested_role = serializers.CharField(write_only=True, required=False, default='driver')
+    otp = serializers.CharField(write_only=True, required=True, max_length=6)
 
     class Meta:
         model = User
-        fields = ('id', 'username', 'email', 'password', 'first_name', 'last_name', 'requested_role')
+        fields = ('id', 'username', 'email', 'password', 'first_name', 'last_name', 'requested_role', 'otp')
         extra_kwargs = {'password': {'write_only': True}}
 
+    def validate(self, data):
+        from django.utils import timezone
+        from datetime import timedelta
+        from .models import OTPRecord
+        
+        email = data.get('email')
+        otp = data.get('otp')
+        
+        try:
+            record = OTPRecord.objects.get(email=email)
+            if record.otp != otp:
+                raise serializers.ValidationError({"otp": "Invalid OTP."})
+            
+            # Check expiration (10 minutes)
+            if timezone.now() > record.created_at + timedelta(minutes=10):
+                record.delete()
+                raise serializers.ValidationError({"otp": "OTP has expired."})
+                
+        except OTPRecord.DoesNotExist:
+            raise serializers.ValidationError({"otp": "No OTP requested for this email."})
+            
+        return data
+
     def create(self, validated_data):
+        from .models import OTPRecord
         requested_role = validated_data.pop('requested_role', 'driver')
+        email = validated_data.get('email', '')
+        
+        # We can safely delete the OTP record now that it is validated
+        validated_data.pop('otp', None)
+        OTPRecord.objects.filter(email=email).delete()
         
         user = User.objects.create_user(
             username=validated_data['username'],
-            email=validated_data.get('email', ''),
+            email=email,
             password=validated_data['password'],
             first_name=validated_data.get('first_name', ''),
             last_name=validated_data.get('last_name', '')

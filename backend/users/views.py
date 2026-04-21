@@ -1,4 +1,5 @@
 from rest_framework import generics
+from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
@@ -9,6 +10,45 @@ class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     permission_classes = (AllowAny,)
     serializer_class = RegisterSerializer
+
+class RequestOTPView(APIView):
+    permission_classes = (AllowAny,)
+
+    def post(self, request):
+        import random
+        from django.core.mail import send_mail
+        from .models import OTPRecord
+        
+        email = request.data.get('email')
+        username = request.data.get('username')
+
+        if not email or not username:
+            return Response({"error": "Email and username are required."}, status=400)
+
+        if User.objects.filter(email=email).exists():
+            return Response({"error": "Email is already registered."}, status=400)
+            
+        if User.objects.filter(username=username).exists():
+            return Response({"error": "Username is already taken."}, status=400)
+
+        otp_code = f"{random.randint(100000, 999999)}"
+        
+        OTPRecord.objects.update_or_create(
+            email=email,
+            defaults={'otp': otp_code}
+        )
+
+        try:
+            send_mail(
+                'Your Toll Management Verification Code',
+                f'Your verification code is: {otp_code}\nThis code will expire in 10 minutes.',
+                None, # Uses DEFAULT_FROM_EMAIL or EMAIL_HOST_USER
+                [email],
+                fail_silently=False,
+            )
+            return Response({"message": "OTP sent successfully."})
+        except Exception as e:
+            return Response({"error": "Failed to send email. Ensure SMTP settings are configured in your environment."}, status=500)
 
 class ProfileView(generics.RetrieveUpdateAPIView):
     permission_classes = (IsAuthenticated,)

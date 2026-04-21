@@ -1,42 +1,72 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, ScrollView, Modal } from 'react-native';
 import { useRouter } from 'expo-router';
 
 export default function RegisterScreen() {
   const router = useRouter();
   const [form, setForm] = useState({ username: '', email: '', password: '', first_name: '', last_name: '', requested_role: 'driver' });
   const [loading, setLoading] = useState(false);
+  const [otpModalVisible, setOtpModalVisible] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
 
-  const handleRegister = async () => {
-    if (!form.username || !form.password) {
-      Alert.alert('Error', 'Username and Password are required');
+  const handleRequestOTP = async () => {
+    if (!form.username || !form.password || !form.email) {
+      Alert.alert('Error', 'Username, Email and Password are required');
       return;
     }
 
     setLoading(true);
     try {
-      const response = await fetch('http://192.168.0.102:8000/api/users/register/', {
+      const response = await fetch('http://192.168.0.102:8000/api/users/request-otp/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form)
+        body: JSON.stringify({ email: form.email, username: form.username })
       });
       
       const data = await response.json();
       
-      if (response.ok || response.status === 201) {
-        Alert.alert(
-          'Registration Success', 
-          form.requested_role === 'employee' ? 'Your Employee Application was sent to Admins for approval!' : 'Account created successfully!', 
-          [{ text: 'OK', onPress: () => router.replace('/login') }]
-        );
+      if (response.ok) {
+        setOtpModalVisible(true);
       } else {
-        Alert.alert('Registration Failed', JSON.stringify(data));
+        Alert.alert('Request Failed', JSON.stringify(data.error || data));
       }
     } catch (e) {
       Alert.alert('Error', 'Network error. Make sure backend is running.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleVerifyOTP = async () => {
+      if (!otpCode || otpCode.length !== 6) {
+          Alert.alert('Error', 'Please enter a valid 6-digit OTP code.');
+          return;
+      }
+      setLoading(true);
+      try {
+        const response = await fetch('http://192.168.0.102:8000/api/users/register/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...form, otp: otpCode })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok || response.status === 201) {
+          setOtpModalVisible(false);
+          Alert.alert(
+            'Registration Success', 
+            form.requested_role === 'employee' ? 'Your Employee Application was sent to Admins for approval!' : 'Account created successfully!', 
+            [{ text: 'OK', onPress: () => router.replace('/login') }]
+          );
+        } else {
+          Alert.alert('Registration Failed', JSON.stringify(data.otp || data));
+        }
+      } catch (e) {
+        Alert.alert('Error', 'Network error.');
+      } finally {
+        setLoading(false);
+      }
   };
 
   return (
@@ -68,7 +98,7 @@ export default function RegisterScreen() {
         />
         <TextInput 
           style={styles.input} 
-          placeholder="Email" 
+          placeholder="Valid Email Required *" 
           placeholderTextColor="#64748b"
           autoCapitalize="none"
           keyboardType="email-address"
@@ -98,14 +128,44 @@ export default function RegisterScreen() {
           onChangeText={(v) => setForm({...form, password: v})}
         />
 
-        <TouchableOpacity style={styles.button} onPress={handleRegister} disabled={loading}>
-          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Register</Text>}
+        <TouchableOpacity style={styles.button} onPress={handleRequestOTP} disabled={loading}>
+          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Get Verification Code</Text>}
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => router.back()} style={styles.linkButton}>
           <Text style={styles.linkText}>Back to Login</Text>
         </TouchableOpacity>
       </View>
+
+      {/* OTP Modal */}
+      <Modal visible={otpModalVisible} transparent animationType="slide">
+        <View style={styles.modalBg}>
+            <View style={styles.modalCard}>
+                <Text style={styles.modalTitle}>Email Verification</Text>
+                <Text style={styles.modalSub}>A 6-digit code has been sent to {form.email}. Please enter it below to create your account.</Text>
+                
+                <TextInput 
+                    style={styles.otpInput}
+                    placeholder="------"
+                    placeholderTextColor="#64748b"
+                    keyboardType="number-pad"
+                    maxLength={6}
+                    value={otpCode}
+                    onChangeText={setOtpCode}
+                    textAlign="center"
+                />
+
+                <TouchableOpacity style={styles.button} onPress={handleVerifyOTP} disabled={loading}>
+                    {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Verify & Create</Text>}
+                </TouchableOpacity>
+
+                <TouchableOpacity style={{marginTop: 15, alignItems: 'center'}} onPress={() => setOtpModalVisible(false)}>
+                    <Text style={{color: '#ef4444'}}>Cancel</Text>
+                </TouchableOpacity>
+            </View>
+        </View>
+      </Modal>
+
     </ScrollView>
   );
 }
@@ -124,5 +184,10 @@ const styles = StyleSheet.create({
   button: { backgroundColor: '#10b981', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 10 },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   linkButton: { alignItems: 'center', marginTop: 10 },
-  linkText: { color: '#94a3b8', fontSize: 14 }
+  linkText: { color: '#94a3b8', fontSize: 14 },
+  modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 20 },
+  modalCard: { backgroundColor: '#1e293b', padding: 24, borderRadius: 16, borderWidth: 1, borderColor: '#334155' },
+  modalTitle: { fontSize: 22, fontWeight: 'bold', color: '#fff', textAlign: 'center', marginBottom: 10 },
+  modalSub: { fontSize: 14, color: '#94a3b8', textAlign: 'center', marginBottom: 20 },
+  otpInput: { backgroundColor: '#0f172a', color: '#fff', fontSize: 24, padding: 16, borderRadius: 12, borderWidth: 1, borderColor: '#3b82f6', letterSpacing: 8 }
 });
