@@ -1,6 +1,14 @@
 from rest_framework import generics, permissions
-from .models import Vehicle
-from .serializers import VehicleSerializer
+from .models import Vehicle, VehicleType
+from .serializers import VehicleSerializer, VehicleTypeSerializer
+
+class VehicleTypeListCreateAPIView(generics.ListCreateAPIView):
+    queryset = VehicleType.objects.all()
+    serializer_class = VehicleTypeSerializer
+
+class VehicleTypeRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = VehicleType.objects.all()
+    serializer_class = VehicleTypeSerializer
 
 class VehicleListCreateAPIView(generics.ListCreateAPIView):
     serializer_class = VehicleSerializer

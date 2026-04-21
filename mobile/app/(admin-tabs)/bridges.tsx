@@ -4,9 +4,32 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 
 type Bridge = { id: number; name: string; is_active: boolean };
-type TollRate = { id: number; bridge: number; vehicle_type: string; amount: string };
+type TollRate = { id: number; bridge: number; vehicle_type: string; amount: string; disabled_at?: string };
 
-const VEHICLES = ['car', 'bus', 'truck', 'bike'];
+function CountdownTimer({ targetDate }: { targetDate: string }) {
+  const [timeLeft, setTimeLeft] = useState<{m: number, s: number} | null>(null);
+
+  useEffect(() => {
+    const end = new Date(targetDate).getTime() + 60 * 60 * 1000;
+    const interval = setInterval(() => {
+      const now = new Date().getTime();
+      const distance = end - now;
+      if (distance < 0) {
+        setTimeLeft({m: 0, s: 0});
+        clearInterval(interval);
+      } else {
+        setTimeLeft({
+          m: Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60)),
+          s: Math.floor((distance % (1000 * 60)) / 1000)
+        });
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [targetDate]);
+
+  if (!timeLeft) return <Text style={{color: '#f59e0b', fontSize: 9, marginTop: 4, fontWeight: 'bold'}}>Calculating...</Text>;
+  return <Text style={{color: '#f59e0b', fontSize: 9, marginTop: 4, fontWeight: 'bold'}}>Shutting down: {timeLeft.m}:{timeLeft.s.toString().padStart(2, '0')}</Text>;
+}
 
 export default function ManageBridgesScreen() {
   const [loading, setLoading] = useState(true);
@@ -18,13 +41,25 @@ export default function ManageBridgesScreen() {
   const [rates, setRates] = useState<TollRate[]>([]);
   const [inputs, setInputs] = useState<{[key: string]: string}>({});
 
-  // Create Bridge Modal State
   const [createModal, setCreateModal] = useState(false);
   const [newBridgeName, setNewBridgeName] = useState('');
+  const [newBridgeRates, setNewBridgeRates] = useState<{[key: string]: {allowed: boolean, amount: string}}>({});
+  
+  // Vehicle Types
+  const [vehicleTypes, setVehicleTypes] = useState<{id: number, name: string, icon: string}[]>([]);
 
   useEffect(() => {
     fetchBridges();
+    fetchTypes();
   }, []);
+
+  const fetchTypes = async () => {
+    try {
+      const res = await fetch('http://192.168.0.102:8000/api/vehicles/types/');
+      const data = await res.json();
+      setVehicleTypes(Array.isArray(data) ? data : []);
+    } catch(e){}
+  };
 
   const fetchBridges = async () => {
     try {
@@ -51,8 +86,23 @@ export default function ManageBridgesScreen() {
         body: JSON.stringify({ name: newBridgeName, is_active: false })
       });
       if (res.ok) {
-        Alert.alert('Created', `${newBridgeName} has been added!`);
+        const newlyCreatedBridge = await res.json();
+        
+        const ratePromises = vehicleTypes.map(async (vType) => {
+           const rateData = newBridgeRates[vType.name];
+           if (rateData && rateData.allowed && rateData.amount) {
+               await fetch(`http://192.168.0.102:8000/api/bridges/${newlyCreatedBridge.id}/rates/`, {
+                 method: 'POST',
+                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                 body: JSON.stringify({ bridge: newlyCreatedBridge.id, vehicle_type: vType.name, amount: rateData.amount })
+               });
+           }
+        });
+        await Promise.all(ratePromises);
+
+        Alert.alert('Created', `${newBridgeName} has been fully configured!`);
         setNewBridgeName('');
+        setNewBridgeRates({});
         setCreateModal(false);
         fetchBridges();
       } else { Alert.alert('Error', 'Could not create bridge'); }
@@ -150,6 +200,17 @@ export default function ManageBridgesScreen() {
     } catch { Alert.alert('Error', 'Network request failed'); }
   };
 
+  const handleToggleExistingRate = (vType: string, existingRate: any, value: boolean) => {
+    if (value) {
+      handleSetRate(vType); 
+    } else if (!value && existingRate) {
+      Alert.alert('Confirm Disable', `Are you sure you want to disable ${vType.toUpperCase()} on this bridge?`, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Disable', style: 'destructive', onPress: () => handleDeleteRate(existingRate.id, vType) }
+      ]);
+    }
+  };
+
   const handleInputChange = (vType: string, val: string) => {
     setInputs(prev => ({ ...prev, [vType]: val }));
   };
@@ -192,10 +253,16 @@ export default function ManageBridgesScreen() {
       )}
 
       {/* CREATE BRIDGE MODAL */}
-      <Modal animationType="fade" transparent={true} visible={createModal} onRequestClose={() => setCreateModal(false)}>
-        <View style={styles.modalBgCenter}>
-          <View style={styles.modalCenterContent}>
-            <Text style={styles.modalTitle}>Add Bridge</Text>
+      <Modal animationType="slide" transparent={true} visible={createModal} onRequestClose={() => setCreateModal(false)}>
+        <View style={styles.modalBg}>
+          <View style={[styles.modalContent, {height: '85%'}]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Construct & Configure Bridge</Text>
+              <TouchableOpacity onPress={() => setCreateModal(false)}>
+                <Ionicons name="close-circle" size={32} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+            
             <TextInput 
               style={styles.modalInput}
               placeholder="e.g. Padma Bridge"
@@ -203,12 +270,45 @@ export default function ManageBridgesScreen() {
               value={newBridgeName}
               onChangeText={setNewBridgeName}
             />
-            <View style={{flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 24}}>
-               <TouchableOpacity style={styles.btnDelete} onPress={() => setCreateModal(false)}>
-                 <Text style={{color: '#fff', fontWeight: 'bold'}}>Cancel</Text>
-               </TouchableOpacity>
-               <TouchableOpacity style={styles.btnCreate} onPress={handleCreateBridge}>
-                 <Text style={{color: '#fff', fontWeight: 'bold'}}>Construct</Text>
+
+            <Text style={[styles.modalSubtitle, {marginTop: 20}]}>Allow Vehicles & Set initial Fares (BDT)</Text>
+            
+            <ScrollView style={{marginTop: 10}}>
+              {vehicleTypes.map((vTypeObj) => {
+                const vType = vTypeObj.name;
+                const isAllowed = newBridgeRates[vType]?.allowed || false;
+                const amt = newBridgeRates[vType]?.amount || '';
+                return (
+                  <View key={vType} style={[styles.rateRow, !isAllowed && {opacity: 0.5}]}>
+                    <View style={styles.vehicleCol}>
+                      <Ionicons name={vTypeObj.icon as any} size={24} color="#94a3b8" />
+                      <Text style={styles.vehicleLabel}>{vType.toUpperCase()}</Text>
+                    </View>
+                    
+                    <Switch 
+                      value={isAllowed} 
+                      onValueChange={(val) => setNewBridgeRates(prev => ({...prev, [vType]: {...prev[vType], allowed: val}}))}
+                      trackColor={{ false: '#334155', true: '#10b981' }}
+                    />
+
+                    {isAllowed && (
+                      <TextInput 
+                        style={styles.inputCreate}
+                        placeholder="0.00"
+                        placeholderTextColor="#64748b"
+                        keyboardType="numeric"
+                        value={amt}
+                        onChangeText={(val) => setNewBridgeRates(prev => ({...prev, [vType]: {...prev[vType], amount: val}}))}
+                      />
+                    )}
+                  </View>
+                );
+              })}
+            </ScrollView>
+
+            <View style={{flexDirection: 'row', justifyContent: 'center', marginTop: 20, paddingBottom: 10}}>
+               <TouchableOpacity style={[styles.btnCreate, {width: '100%', alignItems: 'center', paddingVertical: 14}]} onPress={handleCreateBridge}>
+                 <Text style={{color: '#fff', fontWeight: 'bold', fontSize: 16}}>Build & Publish</Text>
                </TouchableOpacity>
             </View>
           </View>
@@ -229,17 +329,29 @@ export default function ManageBridgesScreen() {
 
             {ratesLoading ? <ActivityIndicator size="large" color="#10b981" style={{marginTop: 40}} /> : (
               <ScrollView style={{marginTop: 20}}>
-                {VEHICLES.map((vType) => {
+                {vehicleTypes.map((vTypeObj) => {
+                  const vType = vTypeObj.name;
                   const existingRate = rates.find(r => r.vehicle_type === vType);
+                  const isClosing = existingRate && existingRate.disabled_at;
+                  const isAllowed = existingRate && !existingRate.disabled_at;
                   return (
-                    <View key={vType} style={styles.rateRow}>
-                      <View style={styles.vehicleCol}>
-                        <Ionicons name={vType === 'car' ? 'car-sport' : vType === 'bus' ? 'bus' : vType === 'bike' ? 'bicycle' : 'construct'} size={24} color="#94a3b8" />
-                        <Text style={styles.vehicleLabel}>{vType.toUpperCase()}</Text>
+                    <View key={vType} style={[styles.rateRow, (!isAllowed && !isClosing) && {opacity: 0.7}]}>
+                      <View style={{flexDirection: 'column', width: 95}}>
+                        <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                          <Ionicons name={vTypeObj.icon as any} size={24} color="#94a3b8" />
+                          <Text style={styles.vehicleLabel}>{vType.toUpperCase()}</Text>
+                        </View>
+                        {isClosing && <CountdownTimer targetDate={existingRate.disabled_at as string} />}
                       </View>
+
+                      <Switch 
+                        value={isAllowed} 
+                        onValueChange={(val) => handleToggleExistingRate(vType, existingRate, val)}
+                        trackColor={{ false: '#334155', true: '#10b981' }}
+                      />
                       
                       <TextInput 
-                        style={existingRate ? styles.inputUpdate : styles.inputCreate}
+                        style={isAllowed ? styles.inputUpdate : styles.inputCreate}
                         placeholder="0.00"
                         placeholderTextColor="#64748b"
                         keyboardType="numeric"
@@ -247,21 +359,10 @@ export default function ManageBridgesScreen() {
                         onChangeText={(val) => handleInputChange(vType, val)}
                       />
 
-                      {existingRate ? (
-                        <View style={styles.actionCol}>
-                          <TouchableOpacity style={styles.btnUpdate} onPress={() => handleUpdateRate(existingRate.id, vType)}>
-                            <Ionicons name="checkmark" size={20} color="#fff" />
-                          </TouchableOpacity>
-                          <TouchableOpacity style={styles.btnDelete} onPress={() => handleDeleteRate(existingRate.id, vType)}>
-                            <Ionicons name="trash" size={20} color="#fff" />
-                          </TouchableOpacity>
-                        </View>
-                      ) : (
-                        <View style={styles.actionCol}>
-                          <TouchableOpacity style={styles.btnCreate} onPress={() => handleSetRate(vType)}>
-                            <Text style={styles.btnCreateText}>SET</Text>
-                          </TouchableOpacity>
-                        </View>
+                      {isAllowed && existingRate && String(existingRate.amount) !== inputs[vType] && (
+                        <TouchableOpacity style={[styles.btnUpdate, {marginLeft: 10}]} onPress={() => handleUpdateRate(existingRate.id, vType)}>
+                          <Ionicons name="save" size={20} color="#fff" />
+                        </TouchableOpacity>
                       )}
                     </View>
                   );

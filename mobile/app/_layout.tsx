@@ -1,6 +1,6 @@
 import { Stack, usePathname } from 'expo-router';
 import { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Alert } from 'react-native';
 import GlobalLoader from '../components/GlobalLoader';
 
 export default function RootLayout() {
@@ -8,6 +8,32 @@ export default function RootLayout() {
   const [isNavigating, setIsNavigating] = useState(false);
   const pathHistory = useRef<string[]>([]);
   const isInitialMount = useRef(true);
+  const notifiedDisables = useRef<Set<number>>(new Set());
+
+  useEffect(() => {
+    const pollDisables = async () => {
+       try {
+           const res = await fetch('http://192.168.0.102:8000/api/bridges/recent-disables/');
+           if (!res.ok) return;
+           const disables = await res.json();
+           
+           for (const item of disables) {
+               if (!notifiedDisables.current.has(item.id)) {
+                   notifiedDisables.current.add(item.id);
+                   Alert.alert(
+                       '⚠️ Service Update Alert',
+                       `Admin has restricted the ${item.vehicle_type.toUpperCase()} service for ${item.bridge_name}.\nYou have 1 hour remaining to pass via this toll.`,
+                       [{text: 'Understood'}]
+                   );
+               }
+           }
+       } catch (e) {}
+    };
+
+    const interval = setInterval(pollDisables, 10000);
+    pollDisables();
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     // Skip loader completely just on first boot

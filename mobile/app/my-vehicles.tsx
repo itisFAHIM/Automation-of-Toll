@@ -4,10 +4,11 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type Vehicle = { id: number; registration_number: string; vehicle_type: string; owner_name: string };
-const TYPES = ['car', 'bus', 'truck', 'bike'];
+type VehicleType = { id: number; name: string; icon: string };
 
 export default function MyVehiclesScreen() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [types, setTypes] = useState<VehicleType[]>([]);
   const [loading, setLoading] = useState(true);
   
   const [modalVisible, setModalVisible] = useState(false);
@@ -19,7 +20,19 @@ export default function MyVehiclesScreen() {
 
   useEffect(() => {
     fetchVehicles();
+    fetchTypes();
   }, []);
+
+  const fetchTypes = async () => {
+    try {
+      const res = await fetch('http://192.168.0.102:8000/api/vehicles/types/');
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setTypes(data);
+        if (data.length > 0) setNewType(data[0].name);
+      }
+    } catch(e) {}
+  };
 
   const fetchVehicles = async () => {
     try {
@@ -111,9 +124,9 @@ export default function MyVehiclesScreen() {
             
             <Text style={styles.label}>Vehicle Type</Text>
             <View style={styles.row}>
-              {TYPES.map(t => (
-                <TouchableOpacity key={t} style={[styles.typeBtn, newType === t && styles.typeBtnActive]} onPress={() => setNewType(t)}>
-                  <Text style={[styles.typeText, newType === t && styles.typeTextActive]}>{t}</Text>
+              {types.map(t => (
+                <TouchableOpacity key={t.id} style={[styles.typeBtn, newType === t.name && styles.typeBtnActive]} onPress={() => setNewType(t.name)}>
+                  <Text style={[styles.typeText, newType === t.name && styles.typeTextActive]}>{t.name}</Text>
                 </TouchableOpacity>
               ))}
             </View>

@@ -14,12 +14,7 @@ const PAYMENT_METHODS = [
   { label: 'Rocket', method: 'rocket', icon: 'rocket-outline', color: '#8b5cf6' },
   { label: 'Bank', method: 'bank', icon: 'business-outline', color: '#3b82f6' },
 ];
-const VEHICLE_TYPES = [
-  { type: 'car', icon: 'car-outline' },
-  { type: 'bus', icon: 'bus-outline' },
-  { type: 'truck', icon: 'construct-outline' },
-  { type: 'bike', icon: 'bicycle-outline' },
-];
+
 
 function StepBar({ current }: { current: number }) {
   const steps = ['Bridge', 'Vehicle', 'Amount', 'Pay'];
@@ -72,11 +67,13 @@ export default function PayTollScreen() {
   const [loading, setLoading] = useState(true);
   const [bridges, setBridges] = useState<Bridge[]>([]);
   const [allVehicles, setAllVehicles] = useState<Vehicle[]>([]);
+  const [vehicleTypes, setVehicleTypes] = useState<any[]>([]);
   const [selectedBridge, setSelectedBridge] = useState<number | null>(null);
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [selectedVehicle, setSelectedVehicle] = useState<number | null>(null);
   const [selectedMethod, setSelectedMethod] = useState<string>('bkash');
   const [tollAmount, setTollAmount] = useState<string | null>(null);
+  const [closingSoon, setClosingSoon] = useState(false);
   const [processing, setProcessing] = useState(false);
   const amountAnim = useRef(new Animated.Value(0)).current;
 
@@ -86,14 +83,17 @@ export default function PayTollScreen() {
     const fetchData = async () => {
       try {
         const token = await AsyncStorage.getItem('token');
-        const [bridgeRes, vehicleRes] = await Promise.all([
+        const [bridgeRes, vehicleRes, typeRes] = await Promise.all([
           fetch('http://192.168.0.102:8000/api/bridges/'),
-          fetch('http://192.168.0.102:8000/api/vehicles/', { headers: { 'Authorization': `Bearer ${token}` } })
+          fetch('http://192.168.0.102:8000/api/vehicles/', { headers: { 'Authorization': `Bearer ${token}` } }),
+          fetch('http://192.168.0.102:8000/api/vehicles/types/')
         ]);
         const bridgeData = await bridgeRes.json();
         const vehicleData = await vehicleRes.json();
+        const typeData = await typeRes.json();
         setBridges(Array.isArray(bridgeData) ? bridgeData.filter((b: Bridge) => b.is_active) : []);
         setAllVehicles(Array.isArray(vehicleData) ? vehicleData : []);
+        setVehicleTypes(Array.isArray(typeData) ? typeData : []);
       } catch (e) { console.error(e); }
       finally { setLoading(false); }
     };
@@ -110,12 +110,14 @@ export default function PayTollScreen() {
         })
           .then(r => r.json())
           .then(data => {
-            setTollAmount(data.amount ? `BDT ${data.amount}` : 'Rate not set');
+            setTollAmount(data.amount ? `BDT ${data.amount}` : 'Unavailable');
+            setClosingSoon(!!data.closing_soon);
             Animated.spring(amountAnim, { toValue: 1, friction: 6, useNativeDriver: true }).start();
-          }).catch(() => setTollAmount('Error'));
+          }).catch(() => { setTollAmount('Error'); setClosingSoon(false); });
       });
     } else {
       setTollAmount(null);
+      setClosingSoon(false);
     }
   }, [selectedBridge, selectedVehicle]);
 
@@ -150,7 +152,7 @@ export default function PayTollScreen() {
   };
 
   const availableVehicles = allVehicles.filter(v => v.vehicle_type === selectedType);
-  const showAmount = tollAmount && !tollAmount.includes('...') && !tollAmount.includes('Error') && !tollAmount.includes('not set');
+  const showAmount = tollAmount && !tollAmount.includes('...') && !tollAmount.includes('Error') && tollAmount !== 'Unavailable';
 
   if (loading) return <View style={styles.center}><ActivityIndicator size="large" color="#10b981" /></View>;
 
@@ -169,8 +171,8 @@ export default function PayTollScreen() {
 
       <Text style={styles.label}>2. Select Vehicle Type</Text>
       <View style={styles.row}>
-        {VEHICLE_TYPES.map(({ type, icon }) => (
-          <AnimatedChip key={type} label={type.toUpperCase()} icon={icon as any} color="#f59e0b" selected={selectedType === type} onPress={() => { setSelectedType(type); setSelectedVehicle(null); }} />
+        {vehicleTypes.map(({ name, icon }) => (
+          <AnimatedChip key={name} label={name.toUpperCase()} icon={icon as any} color="#f59e0b" selected={selectedType === name} onPress={() => { setSelectedType(name); setSelectedVehicle(null); }} />
         ))}
       </View>
 
@@ -186,9 +188,18 @@ export default function PayTollScreen() {
       )}
 
       {tollAmount && (
-        <Animated.View style={[styles.amountBox, { opacity: amountAnim, transform: [{ scale: amountAnim.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1] }) }] }]}>
-          <Text style={styles.amountLabel}>Total Toll Amount</Text>
-          <Text style={styles.amountValue}>{tollAmount}</Text>
+        <Animated.View style={[styles.amountBox, tollAmount === 'Unavailable' && { borderColor: '#ef4444' }, closingSoon && { borderColor: '#f59e0b' }, { opacity: amountAnim, transform: [{ scale: amountAnim.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1] }) }] }]}>
+          <Text style={[styles.amountLabel, tollAmount === 'Unavailable' && { color: '#ef4444' }, closingSoon && { color: '#f59e0b' }]}>
+            {tollAmount === 'Unavailable' ? 'Vehicle Restricted' : 'Total Toll Amount'}
+          </Text>
+          <Text style={[styles.amountValue, tollAmount === 'Unavailable' && { fontSize: 16, textAlign: 'center', marginTop: 12 }]}>
+            {tollAmount === 'Unavailable' ? 'This vehicle type is currently restricted by the administration from passing this bridge. Travel with another Vehicle.' : tollAmount}
+          </Text>
+          {closingSoon && (
+            <Text style={{color: '#f59e0b', fontSize: 13, textAlign: 'center', marginTop: 10, fontWeight: 'bold'}}>
+              ⚠️ Service for this vehicle type is turning off soon. You have less than 1 hour to pass.
+            </Text>
+          )}
         </Animated.View>
       )}
 

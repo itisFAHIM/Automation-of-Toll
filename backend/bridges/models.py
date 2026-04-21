@@ -1,5 +1,5 @@
 from django.db import models
-
+from vehicles.models import VehicleType
 
 class Bridge(models.Model):
     STATUS_CHOICES = [
@@ -19,19 +19,13 @@ class Bridge(models.Model):
 
 
 class TollRate(models.Model):
-    VEHICLE_TYPES = [
-        ('car', 'Car'),
-        ('bus', 'Bus'),
-        ('truck', 'Truck'),
-        ('bike', 'Bike'),
-    ]
-
     bridge = models.ForeignKey(Bridge, on_delete=models.CASCADE, related_name='toll_rates')
-    vehicle_type = models.CharField(max_length=20, choices=VEHICLE_TYPES)
+    vehicle_type = models.ForeignKey(VehicleType, on_delete=models.CASCADE, related_name='toll_rates')
     amount = models.DecimalField(max_digits=10, decimal_places=2)
+    disabled_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         unique_together = ('bridge', 'vehicle_type')
 
     def __str__(self):
-        return f"{self.bridge.name} - {self.vehicle_type} - {self.amount}"
+        return f"{self.bridge.name} - {self.vehicle_type.name} - {self.amount}"
