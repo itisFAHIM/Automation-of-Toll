@@ -54,6 +54,11 @@ function GridCard({ item, index }: { item: any; index: number }) {
       >
         <View style={[styles.iconContainer, { backgroundColor: `${item.color}25` }]}>
           <Ionicons name={item.icon} size={30} color={item.color} />
+          {item.badge > 0 && (
+            <View style={styles.notifBadge}>
+              <Text style={styles.notifBadgeText}>{item.badge > 99 ? '99+' : item.badge}</Text>
+            </View>
+          )}
         </View>
         <Text style={styles.itemTitle}>{item.title}</Text>
         <Text style={styles.itemSubtitle}>{item.subtitle}</Text>
@@ -69,6 +74,7 @@ export default function AdminDashboard() {
   const router = useRouter();
   const [bridgesCount, setBridgesCount] = useState<number | null>(null);
   const [pendingEmployees, setPendingEmployees] = useState<number | null>(null);
+  const [pendingVehicles, setPendingVehicles] = useState<number | null>(null);
   const [userName, setUserName] = useState<string>('...');
   const [profilePic, setProfilePic] = useState<string | null>(null);
   const headerAnim = useRef(new Animated.Value(0)).current;
@@ -84,27 +90,28 @@ export default function AdminDashboard() {
     try {
       const token = await AsyncStorage.getItem('token');
       if (!token) return;
-      
-      const [profileRes, bridgesRes, employeesRes] = await Promise.all([
+
+      const [profileRes, bridgesRes, employeesRes, vehiclesRes] = await Promise.all([
         fetch('http://192.168.0.102:8000/api/users/profile/', { headers: { 'Authorization': `Bearer ${token}` } }),
         fetch('http://192.168.0.102:8000/api/bridges/', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('http://192.168.0.102:8000/api/users/pending-employees/', { headers: { 'Authorization': `Bearer ${token}` } })
+        fetch('http://192.168.0.102:8000/api/users/pending-employees/', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('http://192.168.0.102:8000/api/vehicles/pending/', { headers: { 'Authorization': `Bearer ${token}` } })
       ]);
-      
+
       if (profileRes.ok) {
         const profileData = await profileRes.json();
         const fullName = `${profileData.first_name || ''} ${profileData.last_name || ''}`.trim();
         setUserName(fullName || profileData.username || 'Administrator');
         setProfilePic(profileData.profile_picture ? `${profileData.profile_picture}?t=${Date.now()}` : null);
       }
-      
+
       if (bridgesRes.ok) {
         const data = await bridgesRes.json();
         setBridgesCount(Array.isArray(data) ? data.length : 0);
       } else {
         setBridgesCount(0);
       }
-      
+
       if (employeesRes.ok) {
         const data = await employeesRes.json();
         setPendingEmployees(Array.isArray(data) ? data.length : 0);
@@ -112,8 +119,15 @@ export default function AdminDashboard() {
         setPendingEmployees(0);
       }
 
+      if (vehiclesRes.ok) {
+        const data = await vehiclesRes.json();
+        setPendingVehicles(Array.isArray(data) ? data.length : 0);
+      } else {
+        setPendingVehicles(0);
+      }
+
     } catch (e) {
-      setBridgesCount(0); setPendingEmployees(0); setUserName('Administrator');
+      setBridgesCount(0); setPendingEmployees(0); setPendingVehicles(0); setUserName('Administrator');
     }
   };
 
@@ -128,9 +142,10 @@ export default function AdminDashboard() {
   }, []));
 
   const menuItems = [
-    { id: 'employees', title: 'Employees', subtitle: 'Manage staff', icon: 'people-circle' as const, color: '#3b82f6', route: '/(admin-tabs)/employees' as any },
-    { id: 'bridges', title: 'Toll Plazas', subtitle: 'Control gates & rates', icon: 'business' as const, color: '#10b981', route: '/(admin-tabs)/bridges' as any },
-    { id: 'revenue', title: 'Revenue', subtitle: 'Coming soon', icon: 'cash' as const, color: '#64748b', route: null },
+    { id: 'employees', title: 'Employees', subtitle: 'Manage staff', icon: 'people-circle' as const, color: '#3b82f6', route: '/(admin-tabs)/employees' as any, badge: pendingEmployees ?? 0 },
+    { id: 'bridges', title: 'Toll Plazas', subtitle: 'Control gates & rates', icon: 'business' as const, color: '#10b981', route: '/(admin-tabs)/bridges' as any, badge: 0 },
+    { id: 'approvals', title: 'Vehicle Approvals', subtitle: `${pendingVehicles ?? 0} pending requests`, icon: 'clipboard' as const, color: '#f59e0b', route: '/(admin-tabs)/vehicle-approvals' as any, badge: pendingVehicles ?? 0 },
+    { id: 'revenue', title: 'Revenue', subtitle: 'Coming soon', icon: 'cash' as const, color: '#64748b', route: null, badge: 0 },
   ];
 
   return (
@@ -170,6 +185,11 @@ export default function AdminDashboard() {
           <CountUp target={pendingEmployees} />
           <Text style={styles.statLabel}>Pending Staff</Text>
         </View>
+        <View style={[styles.statBox, { borderColor: '#f59e0b40' }]}>
+          <Ionicons name="car-sport" size={18} color="#f59e0b" style={{ marginBottom: 6 }} />
+          <CountUp target={pendingVehicles} />
+          <Text style={styles.statLabel}>Pending Vehicles</Text>
+        </View>
       </Animated.View>
 
       <Text style={styles.sectionTitle}>System Overview</Text>
@@ -206,4 +226,6 @@ const styles = StyleSheet.create({
   arrowBadge: { alignSelf: 'flex-start', padding: 4, borderRadius: 8, marginTop: 10 },
   itemTitle: { fontSize: 15, fontWeight: '700', color: '#fff', marginBottom: 3 },
   itemSubtitle: { fontSize: 11, color: '#64748b', lineHeight: 15 },
+  notifBadge: { position: 'absolute', top: -6, right: -6, backgroundColor: '#ef4444', minWidth: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 5, borderWidth: 2, borderColor: '#1e293b' },
+  notifBadgeText: { color: '#fff', fontSize: 10, fontWeight: '900' },
 });

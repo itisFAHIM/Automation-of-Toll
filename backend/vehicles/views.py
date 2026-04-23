@@ -86,15 +86,6 @@ class ApproveVehicleAPIView(APIView):
         except Vehicle.DoesNotExist:
             return Response({"error": "Vehicle not found or already processed"}, status=404)
 
-        # Check if the minimum wait time has passed
-        if vehicle.eligible_for_approval_at and timezone.now() < vehicle.eligible_for_approval_at:
-            remaining = vehicle.eligible_for_approval_at - timezone.now()
-            hours = int(remaining.total_seconds() // 3600)
-            minutes = int((remaining.total_seconds() % 3600) // 60)
-            return Response({
-                "error": f"Cannot approve yet. Minimum wait time not met. {hours}h {minutes}m remaining."
-            }, status=400)
-
         vehicle.status = 'approved'
         vehicle.approved_at = timezone.now()
         vehicle.save()

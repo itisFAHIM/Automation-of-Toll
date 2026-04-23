@@ -206,9 +206,9 @@ export default function VehicleApprovalsScreen() {
               {/* Actions */}
               <View style={styles.actions}>
                 <TouchableOpacity
-                  style={[styles.approveBtn, !item.can_approve && styles.btnDisabled]}
+                  style={styles.approveBtn}
                   onPress={() => handleApprove(item.id)}
-                  disabled={!item.can_approve || actionLoading === item.id}
+                  disabled={actionLoading === item.id}
                 >
                   {actionLoading === item.id ? (
                     <ActivityIndicator color="#fff" size="small" />
