@@ -73,6 +73,13 @@ export default function AdminLayout() {
           tabBarIcon: ({ color, focused }) => <AnimatedTabIcon name={focused ? "location" : "location-outline"} color={color} focused={focused} /> 
         }} 
       />
+      <Tabs.Screen 
+        name="vehicle-approvals" 
+        options={{ 
+          title: 'Approvals', 
+          tabBarIcon: ({ color, focused }) => <AnimatedTabIcon name={focused ? "clipboard" : "clipboard-outline"} color={color} focused={focused} /> 
+        }} 
+      />
     </Tabs>
   );
 }

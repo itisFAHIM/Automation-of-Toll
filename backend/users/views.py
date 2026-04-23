@@ -10,6 +10,7 @@ class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     permission_classes = (AllowAny,)
     serializer_class = RegisterSerializer
+    parser_classes = (MultiPartParser, FormParser, JSONParser)
 
 class RequestOTPView(APIView):
     permission_classes = (AllowAny,)

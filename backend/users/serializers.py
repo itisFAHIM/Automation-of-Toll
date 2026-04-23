@@ -5,10 +5,12 @@ from .models import UserProfile
 class UserSerializer(serializers.ModelSerializer):
     role = serializers.SerializerMethodField()
     profile_picture = serializers.SerializerMethodField()
+    phone_number = serializers.SerializerMethodField()
+    nid_image = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ('id', 'username', 'email', 'first_name', 'last_name', 'role', 'profile_picture')
+        fields = ('id', 'username', 'email', 'first_name', 'last_name', 'role', 'profile_picture', 'phone_number', 'nid_image')
 
     def get_role(self, obj):
         if hasattr(obj, 'profile'):
@@ -21,6 +23,19 @@ class UserSerializer(serializers.ModelSerializer):
             if request:
                 return request.build_absolute_uri(obj.profile.profile_picture.url)
             return obj.profile.profile_picture.url
+        return None
+
+    def get_phone_number(self, obj):
+        if hasattr(obj, 'profile'):
+            return obj.profile.phone_number
+        return None
+
+    def get_nid_image(self, obj):
+        if hasattr(obj, 'profile') and obj.profile.nid_image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.profile.nid_image.url)
+            return obj.profile.nid_image.url
         return None
 
     def update(self, instance, validated_data):
@@ -42,10 +57,12 @@ class UserSerializer(serializers.ModelSerializer):
 class RegisterSerializer(serializers.ModelSerializer):
     requested_role = serializers.CharField(write_only=True, required=False, default='driver')
     otp = serializers.CharField(write_only=True, required=True, max_length=6)
+    phone_number = serializers.CharField(write_only=True, required=True, max_length=20)
+    nid_image = serializers.ImageField(write_only=True, required=True)
 
     class Meta:
         model = User
-        fields = ('id', 'username', 'email', 'password', 'first_name', 'last_name', 'requested_role', 'otp')
+        fields = ('id', 'username', 'email', 'password', 'first_name', 'last_name', 'requested_role', 'otp', 'phone_number', 'nid_image')
         extra_kwargs = {'password': {'write_only': True}}
 
     def validate(self, data):
@@ -75,6 +92,8 @@ class RegisterSerializer(serializers.ModelSerializer):
         from .models import OTPRecord
         requested_role = validated_data.pop('requested_role', 'driver')
         email = validated_data.get('email', '')
+        phone_number = validated_data.pop('phone_number', '')
+        nid_image = validated_data.pop('nid_image', None)
         
         # We can safely delete the OTP record now that it is validated
         validated_data.pop('otp', None)
@@ -89,6 +108,11 @@ class RegisterSerializer(serializers.ModelSerializer):
         )
 
         actual_role = 'employee_pending' if requested_role == 'employee' else 'driver'
-        UserProfile.objects.create(user=user, role=actual_role)
+        UserProfile.objects.create(
+            user=user,
+            role=actual_role,
+            phone_number=phone_number,
+            nid_image=nid_image,
+        )
 
         return user
