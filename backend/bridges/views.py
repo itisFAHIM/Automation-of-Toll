@@ -4,9 +4,9 @@ from rest_framework.response import Response
 from django.utils import timezone
 from datetime import timedelta
 
-from .models import Bridge, TollRate
+from .models import Bridge, TollRate, District, Route
 from vehicles.models import Vehicle
-from .serializers import BridgeSerializer, TollRateSerializer
+from .serializers import BridgeSerializer, TollRateSerializer, DistrictSerializer, RouteSerializer
 
 
 # ✅ Bridge List & Creation API
@@ -117,3 +117,31 @@ class RecentDisablesAPIView(APIView):
                 'disabled_at': r.disabled_at
             })
         return Response(d_list)
+
+# District List API
+class DistrictListAPIView(generics.ListCreateAPIView):
+    serializer_class = DistrictSerializer
+
+    def get_queryset(self):
+        return District.objects.filter(is_active=True).order_by('name')
+
+class DistrictRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = District.objects.all()
+    serializer_class = DistrictSerializer
+
+
+# Smart Route Lookup API
+class RouteSearchAPIView(APIView):
+    def get(self, request):
+        origin_id = request.query_params.get('origin_id')
+        destination_id = request.query_params.get('destination_id')
+
+        if not origin_id or not destination_id:
+            return Response({'error': 'origin_id and destination_id are required'}, status=400)
+
+        try:
+            route = Route.objects.get(origin_id=origin_id, destination_id=destination_id)
+            serializer = RouteSerializer(route)
+            return Response(serializer.data)
+        except Route.DoesNotExist:
+            return Response({'error': 'No route found between these districts'}, status=404)
