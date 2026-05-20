@@ -107,6 +107,8 @@ class ProcessPaymentAPIView(APIView):
                 "renewal_status": tpass.renewal_status,
                 "transaction_id": p.transaction_id,
                 "token": str(tpass.token),
-                "paid_at": p.paid_at
+                "paid_at": p.paid_at,
+                "expires_at": tpass.expires_at,
+                "created_at": tpass.created_at
             })
         return Response(data)

@@ -70,35 +70,56 @@ export default function DashboardScreen() {
   const [totalTrips, setTotalTrips] = useState<number | null>(null);
   const [userName, setUserName] = useState<string>('...');
   const [profilePic, setProfilePic] = useState<string | null>(null);
+  const [inactiveBridges, setInactiveBridges] = useState<any[]>([]);
+
   const headerAnim = useRef(new Animated.Value(0)).current;
   const statsAnim = useRef(new Animated.Value(0)).current;
+  const bannerAnim = useRef(new Animated.Value(0)).current;
 
   const fetchStats = async () => {
     try {
       const token = await AsyncStorage.getItem('token');
       if (!token) return;
-      const [paymentsRes, profileRes] = await Promise.all([
+      
+      const [paymentsRes, profileRes, bridgesRes] = await Promise.all([
         fetch('http://192.168.0.106:8000/api/payments/', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('http://192.168.0.106:8000/api/users/profile/', { headers: { 'Authorization': `Bearer ${token}` } })
+        fetch('http://192.168.0.106:8000/api/users/profile/', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('http://192.168.0.106:8000/api/bridges/', { headers: { 'Authorization': `Bearer ${token}` } })
       ]);
+      
       if (profileRes.ok) {
         const profileData = await profileRes.json();
         const fullName = `${profileData.first_name || ''} ${profileData.last_name || ''}`.trim();
         setUserName(fullName || profileData.username || 'Driver');
         setProfilePic(profileData.profile_picture ? `${profileData.profile_picture}?t=${Date.now()}` : null);
       }
+      
       const data = await paymentsRes.json();
       if (Array.isArray(data)) {
         setTotalTrips(data.length);
         setActivePasses(data.filter((p: any) => p.pass_status === 'active').length);
-      } else { setTotalTrips(0); setActivePasses(0); }
+      } else { 
+        setTotalTrips(0); 
+        setActivePasses(0); 
+      }
+
+      if (bridgesRes.ok) {
+        const bridgesData = await bridgesRes.json();
+        if (Array.isArray(bridgesData)) {
+          const inactive = bridgesData.filter((b: any) => !b.is_active);
+          setInactiveBridges(inactive);
+        }
+      }
     } catch (e) {
       setTotalTrips(0); setActivePasses(0); setUserName('Driver');
     }
   };
 
   useFocusEffect(useCallback(() => {
-    headerAnim.setValue(0); statsAnim.setValue(0);
+    headerAnim.setValue(0); 
+    statsAnim.setValue(0);
+    bannerAnim.setValue(0);
+    
     fetchStats().then(() => {
       Animated.stagger(100, [
         Animated.spring(headerAnim, { toValue: 1, friction: 7, useNativeDriver: true }),
@@ -106,6 +127,28 @@ export default function DashboardScreen() {
       ]).start();
     });
   }, []));
+
+  // Trigger banner slide animation and warning haptic vibration
+  const prevCount = useRef(0);
+  useEffect(() => {
+    if (inactiveBridges.length > 0) {
+      Animated.spring(bannerAnim, { toValue: 1, friction: 6, useNativeDriver: true }).start();
+      if (inactiveBridges.length > prevCount.current) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      }
+    } else {
+      Animated.timing(bannerAnim, { toValue: 0, duration: 250, useNativeDriver: true }).start();
+    }
+    prevCount.current = inactiveBridges.length;
+  }, [inactiveBridges]);
+
+  // Auto poll bridge status telemetry every 6 seconds to stay completely in sync
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchStats();
+    }, 6000);
+    return () => clearInterval(interval);
+  }, []);
 
   const menuItems = [
     { id: 'pay-toll', title: 'Pay Toll', subtitle: 'Purchase a new pass', icon: 'card-outline' as const, color: '#3b82f6', route: '/pay-toll' },
@@ -121,12 +164,13 @@ export default function DashboardScreen() {
       <View style={styles.blob1} />
       <View style={styles.blob2} />
 
+      {/* Driver Header */}
       <Animated.View style={[styles.header, { opacity: headerAnim, transform: [{ translateY: headerAnim.interpolate({ inputRange: [0, 1], outputRange: [-16, 0] }) }] }]}>
-        <View>
+        <View style={{ flex: 1, marginRight: 12 }}>
           <Text style={styles.greeting}>Welcome back,</Text>
-          <Text style={styles.driverName}>{userName}</Text>
+          <Text style={styles.driverName} numberOfLines={1}>{userName}</Text>
         </View>
-        <View style={{ flexDirection: 'row', gap: 10 }}>
+        <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
           <TouchableOpacity style={styles.profileBtn} onPress={() => router.push('/profile')}>
             {profilePic ? (
               <Image source={{ uri: profilePic }} style={styles.profileImage} />
@@ -142,6 +186,7 @@ export default function DashboardScreen() {
         </View>
       </Animated.View>
 
+      {/* Dashboard Stats */}
       <Animated.View style={[styles.statsContainer, { opacity: statsAnim, transform: [{ translateY: statsAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
         <View style={styles.statBox}>
           <Ionicons name="qr-code-outline" size={18} color="#38bdf8" style={{ marginBottom: 6 }} />
@@ -154,6 +199,29 @@ export default function DashboardScreen() {
           <Text style={styles.statLabel}>Total Trips</Text>
         </View>
       </Animated.View>
+
+      {/* NEW: Live Bridge suspension alert warning banner */}
+      {inactiveBridges.length > 0 && (
+        <Animated.View style={[styles.warningBanner, { 
+          opacity: bannerAnim, 
+          transform: [{ 
+            translateY: bannerAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [-20, 0]
+            })
+          }] 
+        }]}>
+          <View style={styles.warningIconBox}>
+            <Ionicons name="warning" size={22} color="#f59e0b" />
+          </View>
+          <View style={{ flex: 1, marginLeft: 12 }}>
+            <Text style={styles.warningTitle}>PLAZA TRAFFIC ALERT</Text>
+            <Text style={styles.warningDesc}>
+              Toll processing gates at <Text style={{fontWeight: '800', color: '#fff'}}>{inactiveBridges.map(b => b.name).join(', ')}</Text> are temporarily suspended by operators. Plan routes accordingly.
+            </Text>
+          </View>
+        </Animated.View>
+      )}
 
       <Text style={styles.sectionTitle}>Quick Access</Text>
 
@@ -178,10 +246,18 @@ const styles = StyleSheet.create({
   profileImage: { width: 42, height: 42, borderRadius: 21, borderWidth: 2, borderColor: '#3b82f6' },
   profilePlaceholder: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#1e293b', borderWidth: 1.5, borderColor: '#334155', justifyContent: 'center', alignItems: 'center' },
   logoutBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#ef444415', borderWidth: 1, borderColor: '#ef444430', justifyContent: 'center', alignItems: 'center' },
-  statsContainer: { flexDirection: 'row', gap: 14, marginBottom: 32 },
+  
+  statsContainer: { flexDirection: 'row', gap: 14, marginBottom: 24 },
   statBox: { flex: 1, backgroundColor: '#1e293b', padding: 18, borderRadius: 20, alignItems: 'center', borderWidth: 1, borderColor: '#38bdf820' },
   statValue: { fontSize: 34, fontWeight: '900', color: '#38bdf8' },
   statLabel: { fontSize: 12, color: '#94a3b8', marginTop: 4, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
+  
+  // Warning Banner Styles
+  warningBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f59e0b10', borderRadius: 20, borderWidth: 1, borderColor: '#f59e0b25', padding: 16, marginBottom: 28 },
+  warningIconBox: { backgroundColor: '#f59e0b18', padding: 10, borderRadius: 12 },
+  warningTitle: { color: '#f59e0b', fontSize: 11, fontWeight: '800', letterSpacing: 1 },
+  warningDesc: { color: '#cbd5e1', fontSize: 12, marginTop: 4, lineHeight: 18 },
+
   sectionTitle: { fontSize: 16, fontWeight: '700', color: '#64748b', marginBottom: 16, textTransform: 'uppercase', letterSpacing: 1 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
   gridItem: { width: '47%', backgroundColor: '#1e293b', padding: 18, borderRadius: 20, borderWidth: 1, borderColor: '#334155' },

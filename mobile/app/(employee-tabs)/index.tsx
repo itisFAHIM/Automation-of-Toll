@@ -65,7 +65,6 @@ function GridCard({ item, index }: { item: any; index: number }) {
   );
 }
 
-// Separate component for Bridge Toggle Card for better entrance animations
 function BridgeCard({ item, index, toggleActive }: { item: any; index: number; toggleActive: any }) {
   const entrance = useRef(new Animated.Value(0)).current;
 
@@ -108,13 +107,43 @@ export default function EmployeeDashboard() {
   const [profilePic, setProfilePic] = useState<string | null>(null);
   const [loadingBridges, setLoadingBridges] = useState(true);
 
+  // Live Scans Activity Feed
+  const [recentScans, setRecentScans] = useState<any[]>([]);
+  const [loadingScans, setLoadingScans] = useState(true);
+  const [shiftRevenue, setShiftRevenue] = useState(0);
+
   const headerAnim = useRef(new Animated.Value(0)).current;
   const statsAnim = useRef(new Animated.Value(0)).current;
+  const targetProgress = useRef(new Animated.Value(0)).current;
 
   const handleLogout = async () => {
     await AsyncStorage.removeItem('token');
     await AsyncStorage.removeItem('role');
     router.replace('/login');
+  };
+
+  const fetchScans = async () => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) return;
+      
+      const scansRes = await fetch('http://192.168.0.106:8000/api/passes/recent-scans/', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (scansRes.ok) {
+        const scansData = await scansRes.json();
+        const scansArr = Array.isArray(scansData) ? scansData : [];
+        setRecentScans(scansArr);
+        
+        // Sum exact revenues dynamically from actual verified pass payment amounts
+        const totalRevenue = scansArr.reduce((acc: number, scan: any) => acc + (scan.amount || 0), 0);
+        setShiftRevenue(totalRevenue);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingScans(false);
+    }
   };
 
   const fetchData = async () => {
@@ -150,15 +179,40 @@ export default function EmployeeDashboard() {
     }
   };
 
+  // Run initial anims and data fetch
   useFocusEffect(useCallback(() => {
-    headerAnim.setValue(0); statsAnim.setValue(0); setLoadingBridges(true);
-    fetchData().then(() => {
+    headerAnim.setValue(0); 
+    statsAnim.setValue(0); 
+    targetProgress.setValue(0);
+    setLoadingBridges(true);
+    setLoadingScans(true);
+    
+    Promise.all([fetchData(), fetchScans()]).then(() => {
       Animated.stagger(100, [
         Animated.spring(headerAnim, { toValue: 1, friction: 7, useNativeDriver: true }),
         Animated.spring(statsAnim, { toValue: 1, friction: 7, useNativeDriver: true }),
       ]).start();
     });
   }, []));
+
+  // Animate targetProgress dynamically whenever recentScans list updates!
+  useEffect(() => {
+    const SHIFT_TARGET_GOAL = 15;
+    const currentPercent = Math.min(1.0, recentScans.length / SHIFT_TARGET_GOAL);
+    Animated.timing(targetProgress, {
+      toValue: currentPercent,
+      duration: 1000,
+      useNativeDriver: false
+    }).start();
+  }, [recentScans]);
+
+  // Auto poll recent scans every 8 seconds to show real-time stream updates!
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchScans();
+    }, 8000);
+    return () => clearInterval(interval);
+  }, []);
 
   const toggleBridgeActive = async (id: number, currentStatus: boolean) => {
     const isNowActive = !currentStatus;
@@ -194,6 +248,7 @@ export default function EmployeeDashboard() {
       <View style={styles.blob1} />
       <View style={styles.blob2} />
 
+      {/* Operator Header info */}
       <Animated.View style={[styles.header, { opacity: headerAnim, transform: [{ translateY: headerAnim.interpolate({ inputRange: [0, 1], outputRange: [-16, 0] }) }] }]}>
         <View>
           <Text style={styles.greeting}>Operator Desk,</Text>
@@ -215,6 +270,7 @@ export default function EmployeeDashboard() {
         </View>
       </Animated.View>
 
+      {/* Primary stats widget */}
       <Animated.View style={[styles.statsContainer, { opacity: statsAnim, transform: [{ translateY: statsAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
         <View style={styles.statBox}>
           <Ionicons name="business" size={18} color="#10b981" style={{ marginBottom: 6 }} />
@@ -228,6 +284,36 @@ export default function EmployeeDashboard() {
         </View>
       </Animated.View>
 
+      {/* NEW: Shift performance telemetry indicator card */}
+      <Animated.View style={[styles.shiftCard, { opacity: statsAnim }]}>
+        <View style={styles.shiftCardHeader}>
+          <View>
+            <Text style={styles.shiftTitle}>CURRENT SHIFT METRICS</Text>
+            <Text style={styles.shiftSubtitle}>Real-time performance tracking</Text>
+          </View>
+          <View style={styles.shiftRevenueBadge}>
+            <Text style={styles.revenueBadgeLabel}>REVENUE</Text>
+            <Text style={styles.revenueBadgeVal}>BDT {shiftRevenue}</Text>
+          </View>
+        </View>
+
+        {/* Visual progress bar targeting shift metrics */}
+        <View style={styles.progressContainer}>
+          <View style={styles.progressMeta}>
+            <Text style={styles.progressLabel}>Shift Target Status ({recentScans.length} of 15 Scans)</Text>
+            <Text style={styles.progressPercent}>{Math.round(Math.min(100, (recentScans.length / 15) * 100))}% completed</Text>
+          </View>
+          <View style={styles.progressBarBg}>
+            <Animated.View style={[styles.progressBarFill, {
+              width: targetProgress.interpolate({
+                inputRange: [0, 1],
+                outputRange: ['0%', '100%']
+              })
+            }]} />
+          </View>
+        </View>
+      </Animated.View>
+
       <Text style={styles.sectionTitle}>Quick Actions</Text>
       <View style={styles.grid}>
         {menuItems.map((item, index) => (
@@ -235,6 +321,47 @@ export default function EmployeeDashboard() {
         ))}
       </View>
 
+      {/* NEW: Live scans activity telemetry feed */}
+      <View style={{ marginTop: 32 }}>
+        <View style={styles.feedHeaderRow}>
+          <Text style={styles.sectionTitle}>Live Plaza Scan Stream</Text>
+          <View style={styles.liveStreamBadge}>
+            <View style={styles.pulseDot} />
+            <Text style={styles.liveStreamLabel}>LIVE TELEMETRY</Text>
+          </View>
+        </View>
+        
+        {loadingScans ? (
+          <ActivityIndicator size="small" color="#3b82f6" style={{ marginTop: 20 }} />
+        ) : (
+          <View style={styles.feedContainer}>
+            {recentScans.length > 0 ? recentScans.map((scan) => (
+              <View key={scan.id} style={styles.scanFeedCard}>
+                <View style={styles.scanIconBox}>
+                  <Ionicons name={scan.vehicle_icon || 'car-sport-outline'} size={20} color="#3b82f6" />
+                </View>
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <View style={styles.plateBadge}>
+                      <Text style={styles.plateText}>{scan.vehicle}</Text>
+                    </View>
+                    <Text style={styles.scanTimeText}>
+                      {new Date(scan.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </Text>
+                  </View>
+                  <Text style={styles.scanDetailText}>
+                    Passed <Text style={{fontWeight: '700', color: '#fff'}}>{scan.bridge}</Text> • Driver: <Text style={{color: '#94a3b8'}}>{scan.driver}</Text>
+                  </Text>
+                </View>
+              </View>
+            )) : (
+              <Text style={styles.emptyFeedText}>No vehicle scans recorded in this shift yet.</Text>
+            )}
+          </View>
+        )}
+      </View>
+
+      {/* Global overrides toggle section */}
       <View style={{ marginTop: 32 }}>
         <Text style={styles.sectionTitle}>Global Plaza Overrides</Text>
         <Text style={styles.subtitle}>Toggle instantly to halt incoming traffic toll processing</Text>
@@ -271,11 +398,26 @@ const styles = StyleSheet.create({
   profilePlaceholder: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#1e293b', borderWidth: 1.5, borderColor: '#334155', justifyContent: 'center', alignItems: 'center' },
   logoutBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#ef444415', borderWidth: 1, borderColor: '#ef444430', justifyContent: 'center', alignItems: 'center' },
   
-  statsContainer: { flexDirection: 'row', gap: 14, marginBottom: 32 },
+  statsContainer: { flexDirection: 'row', gap: 14, marginBottom: 20 },
   statBox: { flex: 1, backgroundColor: '#1e293b', padding: 18, borderRadius: 20, alignItems: 'center', borderWidth: 1, borderColor: '#10b98120' },
   statValue: { fontSize: 34, fontWeight: '900' },
   statLabel: { fontSize: 12, color: '#94a3b8', marginTop: 4, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
   
+  // Shift card styles
+  shiftCard: { backgroundColor: '#1e293b', borderRadius: 24, padding: 20, borderWidth: 1, borderColor: '#334155', marginBottom: 32 },
+  shiftCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  shiftTitle: { color: '#94a3b8', fontSize: 11, fontWeight: '800', letterSpacing: 1.5 },
+  shiftSubtitle: { color: '#64748b', fontSize: 11, marginTop: 2 },
+  shiftRevenueBadge: { backgroundColor: '#10b98112', borderWidth: 1, borderColor: '#10b98125', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, alignItems: 'flex-end' },
+  revenueBadgeLabel: { color: '#10b981', fontSize: 9, fontWeight: '800', letterSpacing: 0.8 },
+  revenueBadgeVal: { color: '#fff', fontSize: 15, fontWeight: '900', marginTop: 2 },
+  progressContainer: { marginTop: 20 },
+  progressMeta: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  progressLabel: { color: '#cbd5e1', fontSize: 12, fontWeight: '600' },
+  progressPercent: { color: '#10b981', fontSize: 12, fontWeight: '700' },
+  progressBarBg: { height: 8, backgroundColor: '#0f172a', borderRadius: 4, overflow: 'hidden' },
+  progressBarFill: { height: '100%', backgroundColor: '#10b981', borderRadius: 4 },
+
   sectionTitle: { fontSize: 16, fontWeight: '700', color: '#e2e8f0', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 },
   subtitle: { color: '#94a3b8', fontSize: 12, marginBottom: 16, lineHeight: 18 },
   
@@ -286,6 +428,20 @@ const styles = StyleSheet.create({
   itemTitle: { fontSize: 15, fontWeight: '700', color: '#fff', marginBottom: 3 },
   itemSubtitle: { fontSize: 11, color: '#64748b', lineHeight: 15 },
   
+  // Live Feed styles
+  feedHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
+  liveStreamBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#3b82f612', borderWidth: 1, borderColor: '#3b82f625', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
+  pulseDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#3b82f6' },
+  liveStreamLabel: { color: '#3b82f6', fontSize: 9, fontWeight: '800', letterSpacing: 0.5 },
+  feedContainer: { gap: 12 },
+  scanFeedCard: { backgroundColor: '#1e293b', borderLeftWidth: 3, borderLeftColor: '#3b82f6', borderRadius: 16, padding: 14, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#334155' },
+  scanIconBox: { backgroundColor: '#0f172a', padding: 10, borderRadius: 12 },
+  plateBadge: { backgroundColor: '#0f172a', borderWidth: 1.5, borderColor: '#334155', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2 },
+  plateText: { color: '#38bdf8', fontSize: 11, fontWeight: '700', fontFamily: 'monospace' },
+  scanTimeText: { color: '#64748b', fontSize: 11 },
+  scanDetailText: { color: '#94a3b8', fontSize: 12, marginTop: 6 },
+  emptyFeedText: { color: '#64748b', fontSize: 13, textAlign: 'center', marginVertical: 14 },
+
   bridgeCard: { backgroundColor: '#1e293b', borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#334155', flexDirection: 'row', alignItems: 'center' },
   bridgeIconBox: { backgroundColor: '#0f172a', padding: 12, borderRadius: 12 },
   bridgeName: { fontSize: 16, color: '#fff', fontWeight: 'bold' },

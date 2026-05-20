@@ -127,3 +127,25 @@ class ApproveRenewalAPIView(APIView):
             return Response({"message": f"Renewal {action}d successfully"}, status=200)
         except TollPass.DoesNotExist:
             return Response({"error": "Renewal request not found"}, status=404)
+
+class RecentScansAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        if not hasattr(request.user, 'profile') or request.user.profile.role not in ['employee', 'admin']:
+            return Response({"error": "Unauthorized"}, status=403)
+
+        passes = TollPass.objects.filter(status='used').order_by('-created_at')[:10]
+        data = [{
+            "id": p.id,
+            "token": str(p.token),
+            "driver": p.user.username,
+            "vehicle": p.vehicle.registration_number,
+            "vehicle_type": p.vehicle.vehicle_type.name,
+            "vehicle_icon": p.vehicle.vehicle_type.icon,
+            "bridge": p.bridge.name,
+            "created_at": p.created_at,
+            "amount": float(p.payment.amount) if hasattr(p, 'payment') else 0.0
+        } for p in passes]
+        return Response(data)
+
