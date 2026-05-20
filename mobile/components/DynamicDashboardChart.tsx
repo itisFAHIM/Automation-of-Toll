@@ -1,16 +1,16 @@
 /**
- * DynamicDashboardChart — Pure React Native implementation.
- * Zero dependency on react-native-svg so it works on BOTH Expo Go (mobile) AND Expo Web (browser).
- * Draws the Bezier-style chart by absolutely-positioning tiny Views along the computed polyline.
+ * DynamicDashboardChart — Pure React Native Views, zero react-native-svg.
+ * Works on Expo Go (mobile) AND Expo Web (browser).
+ * Uses onLayout to measure real width so it fits correctly inside any container.
  */
 import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  Dimensions,
   TouchableOpacity,
   Animated,
+  LayoutChangeEvent,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 
@@ -29,16 +29,11 @@ interface DynamicDashboardChartProps {
   valueSuffix?: string;
 }
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CHART_WIDTH = SCREEN_WIDTH - 64;
 const CHART_HEIGHT = 160;
 const PADDING_X = 14;
 const PADDING_Y = 22;
-
-// Number of micro-segments to approximate the cubic Bezier path
 const BEZIER_STEPS = 40;
 
-/** Cubic Bezier point at parameter t (0..1) */
 function cubicBezier(
   p0: { x: number; y: number },
   cp1: { x: number; y: number },
@@ -62,7 +57,12 @@ export default function DynamicDashboardChart({
   valueSuffix = '',
 }: DynamicDashboardChartProps) {
   const [activeIndex, setActiveIndex] = useState<number>(points.length - 1);
+  const [chartWidth, setChartWidth] = useState<number>(0);
   const fadeAnim = useRef(new Animated.Value(1)).current;
+
+  const onLayout = (e: LayoutChangeEvent) => {
+    setChartWidth(e.nativeEvent.layout.width);
+  };
 
   const selectPoint = (index: number) => {
     if (index !== activeIndex && index >= 0 && index < points.length) {
@@ -83,7 +83,9 @@ export default function DynamicDashboardChart({
     );
   }
 
-  // ── Coordinate calculation ──────────────────────────────────────────────────
+  // Wait until we have a real measured width before drawing
+  const CHART_WIDTH = chartWidth > 0 ? chartWidth : 0;
+
   const maxValue = Math.max(...points.map((p) => p.value), 1);
   const minValue = Math.min(...points.map((p) => p.value), 0);
   const valueRange = maxValue - minValue || 1;
@@ -91,15 +93,20 @@ export default function DynamicDashboardChart({
   const graphWidth = CHART_WIDTH - PADDING_X * 2;
   const graphHeight = CHART_HEIGHT - PADDING_Y * 2;
 
-  const coords = points.map((p, i) => ({
-    x: PADDING_X + (i * graphWidth) / Math.max(points.length - 1, 1),
-    // SVG-style: y=0 is top, so invert
-    y: CHART_HEIGHT - PADDING_Y - ((p.value - minValue) * graphHeight) / valueRange,
-  }));
+  const coords =
+    CHART_WIDTH > 0
+      ? points.map((p, i) => ({
+          x: PADDING_X + (i * graphWidth) / Math.max(points.length - 1, 1),
+          y:
+            CHART_HEIGHT -
+            PADDING_Y -
+            ((p.value - minValue) * graphHeight) / valueRange,
+        }))
+      : [];
 
-  // ── Build full Bezier polyline as an array of tiny View segments ────────────
+  // Build Bezier line segments and fill strip data
   const lineSegments: { x: number; y: number; width: number; angle: number }[] = [];
-  const fillPoints: { x: number; y: number }[] = []; // for area fill
+  const fillPoints: { x: number; y: number }[] = [];
 
   for (let seg = 0; seg < coords.length - 1; seg++) {
     const p0 = coords[seg];
@@ -122,30 +129,22 @@ export default function DynamicDashboardChart({
       if (step === 0) fillPoints.push(a);
     }
   }
-  // Add last coord for fill
   if (coords.length > 0) fillPoints.push(coords[coords.length - 1]);
 
-  // ── Area fill row strips (simple column-based approach) ─────────────────────
-  const areaStrips: { x: number; y: number; height: number }[] = [];
   const bottomY = CHART_HEIGHT - PADDING_Y;
+  const areaStrips: { x: number; y: number; height: number }[] = [];
   for (let i = 0; i < fillPoints.length - 1; i++) {
     const a = fillPoints[i];
     const b = fillPoints[i + 1];
     const midY = (a.y + b.y) / 2;
     const stripWidth = b.x - a.x;
     if (stripWidth > 0) {
-      areaStrips.push({
-        x: a.x,
-        y: midY,
-        height: bottomY - midY,
-      });
+      areaStrips.push({ x: a.x, y: midY, height: bottomY - midY });
     }
   }
 
   const activePoint = points[activeIndex];
   const activeCoord = coords[activeIndex];
-
-  // Tooltip horizontal clamp
   const tooltipLeft = activeCoord
     ? Math.max(10, Math.min(CHART_WIDTH - 110, activeCoord.x - 44))
     : 10;
@@ -154,7 +153,7 @@ export default function DynamicDashboardChart({
     <View style={styles.card}>
       {/* Header */}
       <View style={styles.header}>
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.subtitle}>{subtitle}</Text>
         </View>
@@ -168,116 +167,135 @@ export default function DynamicDashboardChart({
         </Animated.View>
       </View>
 
-      {/* Chart canvas using only Views */}
-      <View style={[styles.chartWrapper, { width: CHART_WIDTH, height: CHART_HEIGHT }]}>
-
-        {/* ── Grid dashed lines (top / middle / bottom) ─── */}
-        {[PADDING_Y, CHART_HEIGHT / 2, CHART_HEIGHT - PADDING_Y].map((yPos, gi) => (
-          <View
-            key={gi}
-            style={{
-              position: 'absolute',
-              left: PADDING_X,
-              top: yPos,
-              width: graphWidth,
-              height: 1,
-              backgroundColor: gi === 2 ? '#334155' : 'transparent',
-              borderWidth: gi === 2 ? 0 : 0,
-              // Dash effect via repeated thin views is expensive; use opacity instead
-              opacity: gi === 2 ? 1 : 0.3,
-              // Simulate dashes with borderStyle (web only supports 'solid'/'dashed' in RNW)
-              borderStyle: 'dashed' as any,
-              borderTopWidth: gi === 2 ? 0 : 1,
-              borderTopColor: '#334155',
-            }}
-          />
-        ))}
-
-        {/* ── Area fill strips ────────────────────────────── */}
-        {areaStrips.map((strip, i) => {
-          const opacity = 0.03 + (0.12 * (i / areaStrips.length));
-          return (
+      {/* Chart canvas — measured via onLayout */}
+      <View
+        style={[styles.chartWrapper, { height: CHART_HEIGHT }]}
+        onLayout={onLayout}
+      >
+        {CHART_WIDTH > 0 && (
+          <>
+            {/* Grid lines */}
+            {[PADDING_Y, CHART_HEIGHT / 2].map((yPos, gi) => (
+              <View
+                key={gi}
+                style={{
+                  position: 'absolute',
+                  left: PADDING_X,
+                  top: yPos,
+                  width: graphWidth,
+                  height: 1,
+                  borderStyle: 'dashed' as any,
+                  borderTopWidth: 1,
+                  borderTopColor: '#334155',
+                  opacity: 0.5,
+                }}
+              />
+            ))}
+            {/* Solid baseline */}
             <View
-              key={`fill-${i}`}
               style={{
                 position: 'absolute',
-                left: strip.x,
-                top: strip.y,
-                width: (CHART_WIDTH / Math.max(fillPoints.length, 1)) + 1,
-                height: Math.max(0, strip.height),
-                backgroundColor: accentColor,
-                opacity,
+                left: PADDING_X,
+                top: CHART_HEIGHT - PADDING_Y,
+                width: graphWidth,
+                height: 1,
+                backgroundColor: '#334155',
               }}
             />
-          );
-        })}
 
-        {/* ── Bezier line segments ─────────────────────────── */}
-        {lineSegments.map((seg, i) => (
-          <View
-            key={`seg-${i}`}
-            style={{
-              position: 'absolute',
-              left: seg.x,
-              top: seg.y - 1.5,
-              width: seg.width,
-              height: 3,
-              backgroundColor: accentColor,
-              borderRadius: 2,
-              transform: [{ rotate: `${seg.angle}deg` }],
-              transformOrigin: '0 50%' as any,
-            }}
-          />
-        ))}
+            {/* Area fill strips */}
+            {areaStrips.map((strip, i) => {
+              const stripW = CHART_WIDTH / Math.max(fillPoints.length, 1) + 1;
+              const opacity = 0.03 + 0.12 * (i / areaStrips.length);
+              return (
+                <View
+                  key={`fill-${i}`}
+                  style={{
+                    position: 'absolute',
+                    left: strip.x,
+                    top: strip.y,
+                    width: stripW,
+                    height: Math.max(0, strip.height),
+                    backgroundColor: accentColor,
+                    opacity,
+                  }}
+                />
+              );
+            })}
 
-        {/* ── Active vertical guideline ────────────────────── */}
-        {activeCoord && (
-          <View
-            style={{
-              position: 'absolute',
-              left: activeCoord.x,
-              top: PADDING_Y,
-              width: 1,
-              height: graphHeight,
-              backgroundColor: accentColor,
-              opacity: 0.4,
-            }}
-          />
-        )}
+            {/* Bezier line segments */}
+            {lineSegments.map((seg, i) => (
+              <View
+                key={`seg-${i}`}
+                style={{
+                  position: 'absolute',
+                  left: seg.x,
+                  top: seg.y - 1.5,
+                  width: seg.width,
+                  height: 3,
+                  backgroundColor: accentColor,
+                  borderRadius: 2,
+                  transform: [{ rotate: `${seg.angle}deg` }],
+                  transformOrigin: '0 50%' as any,
+                }}
+              />
+            ))}
 
-        {/* ── Data point circles ───────────────────────────── */}
-        {coords.map((c, i) => {
-          const isActive = i === activeIndex;
-          const size = isActive ? 12 : 6;
-          return (
-            <View
-              key={`dot-${i}`}
-              style={{
-                position: 'absolute',
-                left: c.x - size / 2,
-                top: c.y - size / 2,
-                width: size,
-                height: size,
-                borderRadius: size / 2,
-                backgroundColor: isActive ? '#fff' : accentColor,
-                borderWidth: isActive ? 3 : 0,
-                borderColor: accentColor,
-              }}
-            />
-          );
-        })}
+            {/* Active vertical guide */}
+            {activeCoord && (
+              <View
+                style={{
+                  position: 'absolute',
+                  left: activeCoord.x,
+                  top: PADDING_Y,
+                  width: 1,
+                  height: graphHeight,
+                  backgroundColor: accentColor,
+                  opacity: 0.4,
+                }}
+              />
+            )}
 
-        {/* ── Floating tooltip ─────────────────────────────── */}
-        {activeCoord && (
-          <View style={[styles.floatTooltip, { left: tooltipLeft, top: Math.max(4, activeCoord.y - 26) }]}>
-            <Text style={styles.tooltipText}>
-              {valuePrefix}{activePoint.value.toLocaleString()}{valueSuffix}
-            </Text>
-          </View>
+            {/* Data dots */}
+            {coords.map((c, i) => {
+              const isActive = i === activeIndex;
+              const size = isActive ? 12 : 6;
+              return (
+                <View
+                  key={`dot-${i}`}
+                  style={{
+                    position: 'absolute',
+                    left: c.x - size / 2,
+                    top: c.y - size / 2,
+                    width: size,
+                    height: size,
+                    borderRadius: size / 2,
+                    backgroundColor: isActive ? '#fff' : accentColor,
+                    borderWidth: isActive ? 3 : 0,
+                    borderColor: accentColor,
+                  }}
+                />
+              );
+            })}
+
+            {/* Floating tooltip */}
+            {activeCoord && (
+              <View
+                style={[
+                  styles.floatTooltip,
+                  { left: tooltipLeft, top: Math.max(4, activeCoord.y - 26) },
+                ]}
+              >
+                <Text style={styles.tooltipText}>
+                  {valuePrefix}{activePoint.value.toLocaleString()}{valueSuffix}
+                </Text>
+              </View>
+            )}
+          </>
         )}
       </View>
 
-      {/* ── Interactive Bottom Timeline ────────────────────── */}
+      {/* Timeline buttons */}
       <View style={styles.timelineRow}>
         {points.map((p, i) => {
           const isActive = i === activeIndex;
@@ -294,7 +312,12 @@ export default function DynamicDashboardChart({
                 },
               ]}
             >
-              <Text style={[styles.timelineText, isActive && { color: accentColor, fontWeight: '800' }]}>
+              <Text
+                style={[
+                  styles.timelineText,
+                  isActive && { color: accentColor, fontWeight: '800' },
+                ]}
+              >
                 {p.label}
               </Text>
             </TouchableOpacity>
@@ -349,6 +372,7 @@ const styles = StyleSheet.create({
   chartWrapper: {
     position: 'relative',
     overflow: 'hidden',
+    width: '100%',
     marginBottom: 2,
   },
   floatTooltip: {

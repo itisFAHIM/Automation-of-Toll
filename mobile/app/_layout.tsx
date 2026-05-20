@@ -1,8 +1,9 @@
 import { Stack, usePathname } from 'expo-router';
 import { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
 import GlobalLoader from '../components/GlobalLoader';
 import { NotificationProvider, useNotification } from '../components/NotificationProvider';
+import { ThemeProvider } from '../components/ThemeContext';
 
 function RootLayoutContent() {
   const pathname = usePathname();
@@ -38,7 +39,6 @@ function RootLayoutContent() {
   }, []);
 
   useEffect(() => {
-    // Skip loader completely just on first boot
     if (isInitialMount.current) {
         isInitialMount.current = false;
         pathHistory.current.push(pathname);
@@ -55,7 +55,7 @@ function RootLayoutContent() {
 
     if (!isBack) {
       setIsNavigating(true);
-      const randomDelay = Math.floor(Math.random() * 500) + 500; // 0.5s - 1.0s
+      const randomDelay = Math.floor(Math.random() * 500) + 500;
       const timer = setTimeout(() => setIsNavigating(false), randomDelay);
       return () => clearTimeout(timer);
     }
@@ -74,9 +74,25 @@ function RootLayoutContent() {
   );
 }
 
-import { ThemeProvider } from '../components/ThemeContext';
-
 export default function RootLayout() {
+  // On web: wrap in a centered dark shell with phone-width column
+  if (Platform.OS === 'web') {
+    return (
+      <ThemeProvider>
+        <NotificationProvider>
+          <View style={styles.webShell}>
+            <View style={styles.webBlob1} />
+            <View style={styles.webBlob2} />
+            <View style={styles.webPhoneFrame}>
+              <RootLayoutContent />
+            </View>
+          </View>
+        </NotificationProvider>
+      </ThemeProvider>
+    );
+  }
+
+  // Native: render as-is
   return (
     <ThemeProvider>
       <NotificationProvider>
@@ -87,5 +103,48 @@ export default function RootLayout() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0f172a' }
+  container: { flex: 1, backgroundColor: '#0f172a' },
+
+  webShell: {
+    flex: 1,
+    backgroundColor: '#070d1a',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  } as any,
+
+  webBlob1: {
+    position: 'absolute',
+    width: 500,
+    height: 500,
+    borderRadius: 250,
+    backgroundColor: '#3b82f608',
+    top: -100,
+    left: -150,
+    zIndex: 0,
+  } as any,
+
+  webBlob2: {
+    position: 'absolute',
+    width: 400,
+    height: 400,
+    borderRadius: 200,
+    backgroundColor: '#8b5cf608',
+    bottom: -80,
+    right: -120,
+    zIndex: 0,
+  } as any,
+
+  webPhoneFrame: {
+    width: '100%',
+    maxWidth: 430,
+    flex: 1,
+    backgroundColor: '#0f172a',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.6,
+    shadowRadius: 40,
+    elevation: 30,
+    overflow: 'hidden',
+    zIndex: 1,
+  } as any,
 });
