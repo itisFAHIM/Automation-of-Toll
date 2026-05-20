@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import { useRef } from 'react';
-import { Animated, View } from 'react-native';
+import { Animated, View, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 function AnimatedTabIcon({ name, color, focused }: { name: any; color: string; focused: boolean }) {
@@ -26,7 +26,7 @@ export default function AdminLayout() {
   return (
     <Tabs screenOptions={{ 
       headerShown: false, 
-      tabBarStyle: {
+      tabBarStyle: Platform.OS === 'web' ? { display: 'none' } : {
         backgroundColor: '#0f172a',
         borderTopColor: '#1e293b',
         borderTopWidth: 1,

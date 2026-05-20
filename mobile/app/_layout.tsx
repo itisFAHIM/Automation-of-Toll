@@ -4,6 +4,7 @@ import { View, StyleSheet, Platform } from 'react-native';
 import GlobalLoader from '../components/GlobalLoader';
 import { NotificationProvider, useNotification } from '../components/NotificationProvider';
 import { ThemeProvider } from '../components/ThemeContext';
+import WebSidebarLayout from '../components/WebSidebarLayout';
 
 function RootLayoutContent() {
   const pathname = usePathname();
@@ -70,17 +71,34 @@ function RootLayoutContent() {
   );
 }
 
+// Routes where sidebar should NOT show (auth screens)
+const NO_SIDEBAR_ROUTES = ['/login', '/register', '/'];
+
+function WebRoot() {
+  const pathname = usePathname();
+  const hideSidebar = NO_SIDEBAR_ROUTES.includes(pathname);
+
+  if (hideSidebar) {
+    return (
+      <View style={styles.webAuthShell}>
+        <RootLayoutContent />
+      </View>
+    );
+  }
+
+  return (
+    <WebSidebarLayout>
+      <RootLayoutContent />
+    </WebSidebarLayout>
+  );
+}
+
 export default function RootLayout() {
-  // On web: center the content with a clean max-width — no weird phone frame
   if (Platform.OS === 'web') {
     return (
       <ThemeProvider>
         <NotificationProvider>
-          <View style={styles.webRoot}>
-            <View style={styles.webContent}>
-              <RootLayoutContent />
-            </View>
-          </View>
+          <WebRoot />
         </NotificationProvider>
       </ThemeProvider>
     );
@@ -96,20 +114,6 @@ export default function RootLayout() {
 }
 
 const styles = StyleSheet.create({
-  // Native
   container: { flex: 1, backgroundColor: '#0f172a' },
-
-  // Web — seamless, no outer frame
-  webRoot: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-    alignItems: 'center',
-  } as any,
-
-  webContent: {
-    flex: 1,
-    width: '100%',
-    maxWidth: 680,
-    backgroundColor: '#0f172a',
-  } as any,
+  webAuthShell: { flex: 1, backgroundColor: '#0f172a' },
 });
