@@ -244,6 +244,48 @@ export default function EmployeeDashboard() {
     { id: 'renewals', title: 'Renewal Requests', subtitle: 'Approve pass top-ups', icon: 'sync-circle-outline' as const, color: '#f59e0b', route: '/(employee-tabs)/renewals' as any },
   ];
 
+  // Calculate dynamic throughput points based on actual verified scans in SQLite
+  const getDynamicEmployeePoints = () => {
+    if (!recentScans || recentScans.length === 0) {
+      return [
+        { label: '08:00', value: 0, subValue: 'No Scans' },
+        { label: '12:00', value: 0, subValue: 'No Scans' },
+        { label: '16:00', value: 0, subValue: 'No Scans' },
+        { label: '20:00', value: 0, subValue: 'No Scans' }
+      ];
+    }
+
+    // Sort chronologically by created_at ascending
+    const sorted = [...recentScans].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    
+    // Accumulate the count of cleared vehicles over time
+    let scanCount = 0;
+    const rawPoints = sorted.map((s) => {
+      scanCount += 1;
+      const date = new Date(s.created_at);
+      const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      return {
+        label: timeStr,
+        value: scanCount,
+        subValue: s.bridge
+      };
+    });
+
+    // If there are more than 7, compress them evenly
+    if (rawPoints.length > 7) {
+      const step = (rawPoints.length - 1) / 6;
+      const compressed = [];
+      for (let i = 0; i < 7; i++) {
+        compressed.push(rawPoints[Math.round(i * step)]);
+      }
+      return compressed;
+    }
+
+    return rawPoints;
+  };
+
+  const scanTimelinePoints = getDynamicEmployeePoints();
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
       <View style={styles.blob1} />
@@ -323,15 +365,7 @@ export default function EmployeeDashboard() {
         <DynamicDashboardChart 
           title="Lane Throughput"
           subtitle="Vehicles Scanned vs Shift Target — today"
-          points={[
-            { label: '08:00', value: Math.round(recentScans.length * 0.15), subValue: 'Shift Start' },
-            { label: '10:00', value: Math.round(recentScans.length * 0.35), subValue: 'Peak Morning' },
-            { label: '12:00', value: Math.round(recentScans.length * 0.50), subValue: 'Midday Shift' },
-            { label: '14:00', value: Math.round(recentScans.length * 0.65), subValue: 'Steady Flow' },
-            { label: '16:00', value: Math.round(recentScans.length * 0.80), subValue: 'Evening Rush' },
-            { label: '18:00', value: Math.round(recentScans.length * 0.95), subValue: 'Shift Handover' },
-            { label: '20:00', value: recentScans.length, subValue: 'Shift End' }
-          ]}
+          points={scanTimelinePoints}
           accentColor="#10b981"
           valueSuffix=" Cars"
         />

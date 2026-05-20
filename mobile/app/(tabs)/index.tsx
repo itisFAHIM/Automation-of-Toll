@@ -70,6 +70,7 @@ export default function DashboardScreen() {
   const router = useRouter();
   const [activePasses, setActivePasses] = useState<number | null>(null);
   const [totalTrips, setTotalTrips] = useState<number | null>(null);
+  const [rawPayments, setRawPayments] = useState<any[]>([]);
   const [userName, setUserName] = useState<string>('...');
   const [profilePic, setProfilePic] = useState<string | null>(null);
   const [inactiveBridges, setInactiveBridges] = useState<any[]>([]);
@@ -98,9 +99,11 @@ export default function DashboardScreen() {
       
       const data = await paymentsRes.json();
       if (Array.isArray(data)) {
+        setRawPayments(data);
         setTotalTrips(data.length);
         setActivePasses(data.filter((p: any) => p.pass_status === 'active').length);
       } else { 
+        setRawPayments([]);
         setTotalTrips(0); 
         setActivePasses(0); 
       }
@@ -113,7 +116,7 @@ export default function DashboardScreen() {
         }
       }
     } catch (e) {
-      setTotalTrips(0); setActivePasses(0); setUserName('Driver');
+      setRawPayments([]); setTotalTrips(0); setActivePasses(0); setUserName('Driver');
     }
   };
 
@@ -159,6 +162,48 @@ export default function DashboardScreen() {
     { id: 'vehicles', title: 'My Vehicles', subtitle: 'Manage your cars', icon: 'car-sport-outline' as const, color: '#f59e0b', route: '/my-vehicles' },
     { id: 'bridge-status', title: 'Bridge Status', subtitle: 'Operational info', icon: 'map-outline' as const, color: '#ec4899', route: '/bridge-status' },
   ];
+
+  // Calculate dynamic spend points based on actual user payments in SQLite
+  const getDynamicDriverPoints = () => {
+    if (!rawPayments || rawPayments.length === 0) {
+      return [
+        { label: 'Jan', value: 0, subValue: 'No Data' },
+        { label: 'Feb', value: 0, subValue: 'No Data' },
+        { label: 'Mar', value: 0, subValue: 'No Data' },
+        { label: 'Apr', value: 0, subValue: 'No Data' }
+      ];
+    }
+
+    // Sort chronologically by paid_at ascending
+    const sorted = [...rawPayments].sort((a, b) => new Date(a.paid_at).getTime() - new Date(b.paid_at).getTime());
+    
+    // Accumulate total spend to show a growth progression
+    let totalSpend = 0;
+    const rawPoints = sorted.map((p) => {
+      totalSpend += p.amount;
+      const date = new Date(p.paid_at);
+      const dateStr = date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+      return {
+        label: dateStr,
+        value: totalSpend,
+        subValue: p.bridge
+      };
+    });
+
+    // Compress to 6 or 7 coordinates if too large
+    if (rawPoints.length > 7) {
+      const step = (rawPoints.length - 1) / 6;
+      const compressed = [];
+      for (let i = 0; i < 7; i++) {
+        compressed.push(rawPoints[Math.round(i * step)]);
+      }
+      return compressed;
+    }
+
+    return rawPoints;
+  };
+
+  const driverSpendPoints = getDynamicDriverPoints();
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
@@ -219,7 +264,7 @@ export default function DashboardScreen() {
               <Ionicons name="leaf" size={14} color="#10b981" />
             </View>
           </View>
-          <Text style={styles.cardValue}>12.4 kg</Text>
+          <Text style={styles.cardValue}>{((totalTrips || 0) * 1.4).toFixed(1)} kg</Text>
           <Text style={styles.cardTrendGreen}>▲ 14.3% <Text style={styles.cardTrendSub}>eco score</Text></Text>
         </View>
 
@@ -230,8 +275,8 @@ export default function DashboardScreen() {
               <Ionicons name="flash" size={14} color="#ec4899" />
             </View>
           </View>
-          <Text style={styles.cardValue}>1.8 hrs</Text>
-          <Text style={styles.cardTrendGreen}>▲ 24 min <Text style={styles.cardTrendSub}>via express</Text></Text>
+          <Text style={styles.cardValue}>{((totalTrips || 0) * 0.2).toFixed(1)} hrs</Text>
+          <Text style={styles.cardTrendGreen}>▲ {((totalTrips || 0) * 12)} min <Text style={styles.cardTrendSub}>via express</Text></Text>
         </View>
       </Animated.View>
 
@@ -240,14 +285,7 @@ export default function DashboardScreen() {
         <DynamicDashboardChart 
           title="Toll Spend Activity"
           subtitle="Monthly crossing BDT spend flow — today"
-          points={[
-            { label: 'Jan', value: 850, subValue: '2 Trips' },
-            { label: 'Feb', value: 1200, subValue: '4 Trips' },
-            { label: 'Mar', value: 950, subValue: '3 Trips' },
-            { label: 'Apr', value: 1800, subValue: '6 Trips' },
-            { label: 'May', value: 2400, subValue: '8 Trips' },
-            { label: 'Jun', value: 1500, subValue: '5 Trips' }
-          ]}
+          points={driverSpendPoints}
           accentColor="#3b82f6"
           valuePrefix="৳"
         />

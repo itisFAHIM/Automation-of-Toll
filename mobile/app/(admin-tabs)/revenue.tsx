@@ -144,16 +144,47 @@ export default function AdminRevenueHub() {
     outputRange: ['0%', '100%']
   });
 
-  // Dynamic Bezier Graph Points
-  const chartPoints = [
-    { label: '08:00', value: Math.round(totalRevenue * 0.15), subValue: 'Meghna Plaza' },
-    { label: '10:00', value: Math.round(totalRevenue * 0.35), subValue: 'Padma Plaza' },
-    { label: '12:00', value: Math.round(totalRevenue * 0.50), subValue: 'Jamuna Plaza' },
-    { label: '14:00', value: Math.round(totalRevenue * 0.65), subValue: 'Padma Plaza' },
-    { label: '16:00', value: Math.round(totalRevenue * 0.80), subValue: 'Meghna Plaza' },
-    { label: '18:00', value: Math.round(totalRevenue * 0.92), subValue: 'Kanchan Plaza' },
-    { label: '20:00', value: totalRevenue, subValue: 'All Plazas' }
-  ];
+  // Calculate actual chronological cumulative graph points dynamically!
+  const getDynamicAdminPoints = () => {
+    if (!payments || payments.length === 0) {
+      return [
+        { label: '08:00', value: 0, subValue: 'No Data' },
+        { label: '12:00', value: 0, subValue: 'No Data' },
+        { label: '16:00', value: 0, subValue: 'No Data' },
+        { label: '20:00', value: 0, subValue: 'No Data' }
+      ];
+    }
+
+    // Sort payments chronologically by paid_at ascending
+    const sorted = [...payments].sort((a, b) => new Date(a.paid_at).getTime() - new Date(b.paid_at).getTime());
+    
+    // Accumulate step sums to show real-time growth curves
+    let cumulativeSum = 0;
+    const rawPoints = sorted.map((p) => {
+      cumulativeSum += p.amount;
+      const date = new Date(p.paid_at);
+      const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      return {
+        label: timeStr,
+        value: cumulativeSum,
+        subValue: p.bridge
+      };
+    });
+
+    // If there are more than 7 records, downsample them evenly to keep graph paths highly responsive
+    if (rawPoints.length > 7) {
+      const step = (rawPoints.length - 1) / 6;
+      const compressed = [];
+      for (let i = 0; i < 7; i++) {
+        compressed.push(rawPoints[Math.round(i * step)]);
+      }
+      return compressed;
+    }
+
+    return rawPoints;
+  };
+
+  const chartPoints = getDynamicAdminPoints();
 
   return (
     <View style={styles.container}>
@@ -217,7 +248,7 @@ export default function AdminRevenueHub() {
                     <Ionicons name="leaf" size={14} color="#f59e0b" />
                   </View>
                 </View>
-                <Text style={styles.cardValue}>4.2 T</Text>
+                <Text style={styles.cardValue}>{((payments.length || 0) * 0.15).toFixed(2)} T</Text>
                 <Text style={styles.cardTrendGreen}>▲ 14.3% <Text style={styles.cardTrendSub}>vs baseline</Text></Text>
               </View>
             </View>
