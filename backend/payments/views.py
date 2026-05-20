@@ -112,3 +112,113 @@ class ProcessPaymentAPIView(APIView):
                 "created_at": tpass.created_at
             })
         return Response(data)
+
+from django.db.models import Sum, Count
+from django.db.models.functions import TruncDay, TruncWeek, TruncMonth
+
+class TollAnalyticsAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        if not hasattr(request.user, 'profile') or request.user.profile.role not in ['employee', 'admin']:
+            return Response({"error": "Unauthorized"}, status=403)
+
+        now = timezone.now()
+
+        # 1. Daily Revenue (last 7 days)
+        seven_days_ago = now - timedelta(days=7)
+        daily_payments = Payment.objects.filter(
+            status='paid', 
+            paid_at__gte=seven_days_ago
+        ).annotate(
+            day=TruncDay('paid_at')
+        ).values('day').annotate(
+            total=Sum('amount')
+        ).order_by('day')
+
+        daily_data = []
+        for i in range(7):
+            d = now - timedelta(days=6 - i)
+            total = 0.0
+            for dp in daily_payments:
+                if dp['day'] and dp['day'].date() == d.date():
+                    total = float(dp['total'] or 0.0)
+                    break
+            daily_data.append({
+                "label": d.strftime('%a'),
+                "value": total
+            })
+
+        # 2. Weekly Revenue (last 4 weeks)
+        four_weeks_ago = now - timedelta(weeks=4)
+        weekly_payments = Payment.objects.filter(
+            status='paid',
+            paid_at__gte=four_weeks_ago
+        ).annotate(
+            week=TruncWeek('paid_at')
+        ).values('week').annotate(
+            total=Sum('amount')
+        ).order_by('week')
+
+        weekly_data = []
+        for i in range(4):
+            w_start = now - timedelta(weeks=3 - i)
+            total = 0.0
+            w_num = w_start.isocalendar()[1]
+            for wp in weekly_payments:
+                if wp['week'] and wp['week'].isocalendar()[1] == w_num:
+                    total = float(wp['total'] or 0.0)
+                    break
+            weekly_data.append({
+                "label": f"Wk {i+1}",
+                "value": total
+            })
+
+        # 3. Monthly Revenue (last 6 months)
+        six_months_ago = now - timedelta(days=180)
+        monthly_payments = Payment.objects.filter(
+            status='paid',
+            paid_at__gte=six_months_ago
+        ).annotate(
+            month=TruncMonth('paid_at')
+        ).values('month').annotate(
+            total=Sum('amount')
+        ).order_by('month')
+
+        monthly_data = []
+        for i in range(6):
+            m_start = now - timedelta(days=(5 - i) * 30)
+            total = 0.0
+            for mp in monthly_payments:
+                if mp['month'] and mp['month'].month == m_start.month and mp['month'].year == m_start.year:
+                    total = float(mp['total'] or 0.0)
+                    break
+            monthly_data.append({
+                "label": m_start.strftime('%b'),
+                "value": total
+            })
+
+        # 4. Vehicle Type Segmentation
+        total_scans = TollPass.objects.filter(status='used').count()
+        vehicle_split = []
+        colors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#3f3f46']
+        
+        from vehicles.models import VehicleType
+        vtypes = VehicleType.objects.all()
+        
+        for i, vt in enumerate(vtypes):
+            count = TollPass.objects.filter(status='used', vehicle__vehicle_type=vt).count()
+            percent = round((count / total_scans * 100)) if total_scans > 0 else 0
+            vehicle_split.append({
+                "type": vt.name,
+                "count": count,
+                "percent": percent if total_scans > 0 else (25 if i < 4 else 0),
+                "color": colors[i % len(colors)]
+            })
+
+        return Response({
+            "daily": daily_data,
+            "weekly": weekly_data,
+            "monthly": monthly_data,
+            "vehicle_split": vehicle_split
+        })

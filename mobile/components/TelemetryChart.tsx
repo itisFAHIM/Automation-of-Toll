@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, ActivityIndicator } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type ChartTab = 'daily' | 'weekly' | 'monthly';
 
@@ -12,40 +13,39 @@ interface ChartDataPoint {
 export default function TelemetryChart() {
   const [activeTab, setActiveTab] = useState<ChartTab>('daily');
   const [selectedBar, setSelectedBar] = useState<number | null>(null);
+  
+  // Real Database values state
+  const [loading, setLoading] = useState(true);
+  const [dailyData, setDailyData] = useState<ChartDataPoint[]>([]);
+  const [weeklyData, setWeeklyData] = useState<ChartDataPoint[]>([]);
+  const [monthlyData, setMonthlyData] = useState<ChartDataPoint[]>([]);
+  const [vehicleSplit, setVehicleSplit] = useState<any[]>([]);
 
-  // Data sets
-  const dailyData: ChartDataPoint[] = [
-    { label: 'Mon', value: 3400 },
-    { label: 'Tue', value: 4500 },
-    { label: 'Wed', value: 2900 },
-    { label: 'Thu', value: 6200 },
-    { label: 'Fri', value: 8100 },
-    { label: 'Sat', value: 9500 },
-    { label: 'Sun', value: 7200 },
-  ];
+  const fetchAnalytics = async () => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) return;
 
-  const weeklyData: ChartDataPoint[] = [
-    { label: 'Wk 1', value: 28400 },
-    { label: 'Wk 2', value: 32600 },
-    { label: 'Wk 3', value: 41200 },
-    { label: 'Wk 4', value: 38900 },
-  ];
+      const res = await fetch('http://192.168.0.106:8000/api/payments/analytics/', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setDailyData(data.daily || []);
+        setWeeklyData(data.weekly || []);
+        setMonthlyData(data.monthly || []);
+        setVehicleSplit(data.vehicle_split || []);
+      }
+    } catch (e) {
+      console.error("Failed to fetch analytics", e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const monthlyData: ChartDataPoint[] = [
-    { label: 'Jan', value: 124000 },
-    { label: 'Feb', value: 148000 },
-    { label: 'Mar', value: 162000 },
-    { label: 'Apr', value: 195000 },
-    { label: 'May', value: 220000 },
-    { label: 'Jun', value: 185000 },
-  ];
-
-  const vehicleSplit = [
-    { type: 'Sedan', count: 420, percent: 45, color: '#3b82f6' },
-    { type: 'Bus', count: 186, percent: 20, color: '#10b981' },
-    { type: 'HGV/Truck', count: 234, percent: 25, color: '#f59e0b' },
-    { type: 'Bike', count: 93, percent: 10, color: '#8b5cf6' },
-  ];
+  useEffect(() => {
+    fetchAnalytics();
+  }, []);
 
   const currentData = activeTab === 'daily' ? dailyData : activeTab === 'weekly' ? weeklyData : monthlyData;
   const maxValue = Math.max(...currentData.map(d => d.value), 1);
@@ -72,18 +72,27 @@ export default function TelemetryChart() {
     });
 
     Animated.parallel(animations).start();
-  }, [activeTab]);
+  }, [activeTab, currentData]);
 
   const handleBarPress = (index: number) => {
     Haptics.selectionAsync();
     setSelectedBar(selectedBar === index ? null : index);
   };
 
+  if (loading) {
+    return (
+      <View style={[styles.chartCard, { height: 260, justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="small" color="#3b82f6" />
+        <Text style={{ color: '#64748b', fontSize: 12, marginTop: 12 }}>Loading dynamic charts...</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.chartCard}>
       {/* Chart Header */}
       <View style={styles.chartHeader}>
-        <View>
+        <View style={{ flex: 1, marginRight: 8 }}>
           <Text style={styles.chartTitle}>REVENUE ANALYTICS</Text>
           <Text style={styles.chartSubtitle}>Financial toll audit logs</Text>
         </View>
@@ -113,42 +122,48 @@ export default function TelemetryChart() {
 
       {/* Main Bar Chart Visualization */}
       <View style={styles.barsWrapper}>
-        <View style={styles.barsContainer}>
-          {currentData.map((d, index) => {
-            const isSelected = selectedBar === index;
-            const barHeight = animValues.current[index] ? animValues.current[index].interpolate({
-              inputRange: [0, 1],
-              outputRange: ['0%', '100%']
-            }) : '0%';
+        {currentData.length === 0 ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <Text style={{ color: '#64748b', fontSize: 12 }}>No revenue collected for this period</Text>
+          </View>
+        ) : (
+          <View style={styles.barsContainer}>
+            {currentData.map((d, index) => {
+              const isSelected = selectedBar === index;
+              const barHeight = animValues.current[index] ? animValues.current[index].interpolate({
+                inputRange: [0, 1],
+                outputRange: ['0%', '100%']
+              }) : '0%';
 
-            return (
-              <View key={d.label} style={styles.barColumn}>
-                {/* Floating tooltip popover for selected bar */}
-                {isSelected && (
-                  <View style={styles.tooltipBox}>
-                    <Text style={styles.tooltipText}>BDT {d.value.toLocaleString()}</Text>
-                    <View style={styles.tooltipArrow} />
-                  </View>
-                )}
+              return (
+                <View key={d.label} style={styles.barColumn}>
+                  {/* Floating tooltip popover for selected bar */}
+                  {isSelected && (
+                    <View style={styles.tooltipBox}>
+                      <Text style={styles.tooltipText}>BDT {d.value.toLocaleString()}</Text>
+                      <View style={styles.tooltipArrow} />
+                    </View>
+                  )}
 
-                <TouchableOpacity 
-                  activeOpacity={0.8}
-                  onPress={() => handleBarPress(index)}
-                  style={styles.barTouchable}
-                >
-                  <View style={styles.barTrackBg}>
-                    <Animated.View style={[
-                      styles.barFill, 
-                      { height: barHeight },
-                      isSelected && styles.selectedBarFill
-                    ]} />
-                  </View>
-                </TouchableOpacity>
-                <Text style={[styles.barLabel, isSelected && styles.selectedBarLabel]}>{d.label}</Text>
-              </View>
-            );
-          })}
-        </View>
+                  <TouchableOpacity 
+                    activeOpacity={0.8}
+                    onPress={() => handleBarPress(index)}
+                    style={styles.barTouchable}
+                  >
+                    <View style={styles.barTrackBg}>
+                      <Animated.View style={[
+                        styles.barFill, 
+                        { height: barHeight },
+                        isSelected && styles.selectedBarFill
+                      ]} />
+                    </View>
+                  </TouchableOpacity>
+                  <Text style={[styles.barLabel, isSelected && styles.selectedBarLabel]}>{d.label}</Text>
+                </View>
+              );
+            })}
+          </View>
+        )}
       </View>
 
       {/* Dynamic Segmented Allocation Bar */}
