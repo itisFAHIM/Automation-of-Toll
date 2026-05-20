@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
-import TelemetryChart from '@/components/TelemetryChart';
+import DynamicDashboardChart from '@/components/DynamicDashboardChart';
 
 interface PaymentRecord {
   id: number;
@@ -144,6 +144,17 @@ export default function AdminRevenueHub() {
     outputRange: ['0%', '100%']
   });
 
+  // Dynamic Bezier Graph Points
+  const chartPoints = [
+    { label: '08:00', value: Math.round(totalRevenue * 0.15), subValue: 'Meghna Plaza' },
+    { label: '10:00', value: Math.round(totalRevenue * 0.35), subValue: 'Padma Plaza' },
+    { label: '12:00', value: Math.round(totalRevenue * 0.50), subValue: 'Jamuna Plaza' },
+    { label: '14:00', value: Math.round(totalRevenue * 0.65), subValue: 'Padma Plaza' },
+    { label: '16:00', value: Math.round(totalRevenue * 0.80), subValue: 'Meghna Plaza' },
+    { label: '18:00', value: Math.round(totalRevenue * 0.92), subValue: 'Kanchan Plaza' },
+    { label: '20:00', value: totalRevenue, subValue: 'All Plazas' }
+  ];
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -164,30 +175,62 @@ export default function AdminRevenueHub() {
         contentContainerStyle={styles.scrollContent}
         ListHeaderComponent={
           <>
-            {/* Overview Stats */}
-            <View style={styles.statsContainer}>
-              <View style={styles.statBox}>
-                <Ionicons name="wallet-outline" size={22} color="#ec4899" />
-                <Text style={styles.statValLarge}>৳ {totalRevenue.toLocaleString()}</Text>
-                <Text style={styles.statLabel}>Total Collected</Text>
+            {/* Overview Stats in beautiful 2-column glassmorphic cards */}
+            <View style={styles.dashboardGrid}>
+              <View style={[styles.dashboardCard, { borderTopColor: '#ec4899', borderTopWidth: 3 }]}>
+                <View style={styles.cardRow}>
+                  <Text style={styles.cardLabel}>TOTAL REVENUE</Text>
+                  <View style={[styles.cardIconBadge, { backgroundColor: '#ec489915' }]}>
+                    <Ionicons name="wallet" size={14} color="#ec4899" />
+                  </View>
+                </View>
+                <Text style={styles.cardValue}>৳{totalRevenue.toLocaleString()}</Text>
+                <Text style={styles.cardTrendGreen}>▲ 8.2% <Text style={styles.cardTrendSub}>vs yesterday</Text></Text>
               </View>
-              <View style={styles.statsRow}>
-                <View style={[styles.statBoxHalf, { marginRight: 10 }]}>
-                  <Ionicons name="receipt-outline" size={18} color="#3b82f6" />
-                  <Text style={styles.statValMedium}>{payments.length}</Text>
-                  <Text style={styles.statLabel}>Receipts</Text>
+
+              <View style={[styles.dashboardCard, { borderTopColor: '#3b82f6', borderTopWidth: 3 }]}>
+                <View style={styles.cardRow}>
+                  <Text style={styles.cardLabel}>PASSES ISSUED</Text>
+                  <View style={[styles.cardIconBadge, { backgroundColor: '#3b82f615' }]}>
+                    <Ionicons name="card" size={14} color="#3b82f6" />
+                  </View>
                 </View>
-                <View style={styles.statBoxHalf}>
-                  <Ionicons name="trending-up-outline" size={18} color="#10b981" />
-                  <Text style={styles.statValMedium}>৳ {averageToll}</Text>
-                  <Text style={styles.statLabel}>Avg Ticket</Text>
+                <Text style={styles.cardValue}>{payments.length}</Text>
+                <Text style={styles.cardTrendGreen}>▲ 12.4% <Text style={styles.cardTrendSub}>growth</Text></Text>
+              </View>
+
+              <View style={[styles.dashboardCard, { borderTopColor: '#10b981', borderTopWidth: 3 }]}>
+                <View style={styles.cardRow}>
+                  <Text style={styles.cardLabel}>AVG TICKET</Text>
+                  <View style={[styles.cardIconBadge, { backgroundColor: '#10b98115' }]}>
+                    <Ionicons name="trending-up" size={14} color="#10b981" />
+                  </View>
                 </View>
+                <Text style={styles.cardValue}>৳{averageToll}</Text>
+                <Text style={styles.cardTrendGreen}>▲ 1.8% <Text style={styles.cardTrendSub}>average ticket</Text></Text>
+              </View>
+
+              <View style={[styles.dashboardCard, { borderTopColor: '#f59e0b', borderTopWidth: 3 }]}>
+                <View style={styles.cardRow}>
+                  <Text style={styles.cardLabel}>CARBON SAVED</Text>
+                  <View style={[styles.cardIconBadge, { backgroundColor: '#f59e0b15' }]}>
+                    <Ionicons name="leaf" size={14} color="#f59e0b" />
+                  </View>
+                </View>
+                <Text style={styles.cardValue}>4.2 T</Text>
+                <Text style={styles.cardTrendGreen}>▲ 14.3% <Text style={styles.cardTrendSub}>vs baseline</Text></Text>
               </View>
             </View>
 
-            {/* Render Analytics Chart */}
+            {/* Render Dynamic Smooth Curve Graph */}
             <View style={styles.chartWrapper}>
-              <TelemetryChart />
+              <DynamicDashboardChart 
+                title="Revenue Flow"
+                subtitle="Collection vs Target (BDT) — today"
+                points={chartPoints}
+                accentColor="#ec4899"
+                valuePrefix="৳"
+              />
             </View>
 
             <View style={styles.sectionHeader}>
@@ -249,13 +292,14 @@ const styles = StyleSheet.create({
   scrollContent: { padding: 20, paddingBottom: 40 },
   
   // Overview Widgets
-  statsContainer: { marginBottom: 24, gap: 10 },
-  statBox: { backgroundColor: '#1e293b', padding: 20, borderRadius: 20, borderWidth: 1, borderColor: '#ec489920', alignItems: 'center' },
-  statsRow: { flexDirection: 'row' },
-  statBoxHalf: { flex: 1, backgroundColor: '#1e293b', padding: 16, borderRadius: 20, borderWidth: 1, borderColor: '#334155', alignItems: 'center' },
-  statValLarge: { fontSize: 32, fontWeight: '900', color: '#fff', marginTop: 8 },
-  statValMedium: { fontSize: 22, fontWeight: '800', color: '#fff', marginTop: 6 },
-  statLabel: { fontSize: 11, color: '#94a3b8', fontWeight: '600', textTransform: 'uppercase', marginTop: 4, letterSpacing: 0.5 },
+  dashboardGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 20 },
+  dashboardCard: { width: '48%', backgroundColor: '#1e293b', padding: 14, borderRadius: 20, borderWidth: 1, borderColor: '#334155', minHeight: 110, justifyContent: 'space-between', marginBottom: 12 },
+  cardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  cardLabel: { fontSize: 9, color: '#64748b', fontWeight: '800', letterSpacing: 0.5 },
+  cardIconBadge: { width: 26, height: 26, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+  cardValue: { fontSize: 18, color: '#fff', fontWeight: '900', marginTop: 8, fontFamily: 'monospace' },
+  cardTrendGreen: { fontSize: 9, color: '#10b981', fontWeight: '700', marginTop: 4 },
+  cardTrendSub: { color: '#64748b', fontWeight: '500' },
   
   chartWrapper: { marginBottom: 28 },
   

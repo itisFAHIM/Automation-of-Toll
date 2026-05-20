@@ -6,7 +6,9 @@ import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 
-function CountUp({ target }: { target: number | null }) {
+import DynamicDashboardChart from '@/components/DynamicDashboardChart';
+
+function CountUp({ target, style }: { target: number | null, style?: any }) {
   const [display, setDisplay] = useState(0);
   useEffect(() => {
     if (target === null) return;
@@ -21,8 +23,8 @@ function CountUp({ target }: { target: number | null }) {
     }, step);
     return () => clearInterval(timer);
   }, [target]);
-  if (target === null) return <Text style={styles.statValue}>—</Text>;
-  return <Text style={styles.statValue}>{display}</Text>;
+  if (target === null) return <Text style={[styles.statValue, style]}>—</Text>;
+  return <Text style={[styles.statValue, style]}>{display}</Text>;
 }
 
 function GridCard({ item, index }: { item: any; index: number }) {
@@ -186,18 +188,69 @@ export default function DashboardScreen() {
         </View>
       </Animated.View>
 
-      {/* Dashboard Stats */}
-      <Animated.View style={[styles.statsContainer, { opacity: statsAnim, transform: [{ translateY: statsAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
-        <View style={styles.statBox}>
-          <Ionicons name="qr-code-outline" size={18} color="#38bdf8" style={{ marginBottom: 6 }} />
-          <CountUp target={activePasses} />
-          <Text style={styles.statLabel}>Active Passes</Text>
+      {/* Overview Stats in beautiful 2-column glassmorphic cards */}
+      <Animated.View style={[styles.dashboardGrid, { opacity: statsAnim }]}>
+        <View style={[styles.dashboardCard, { borderTopColor: '#38bdf8', borderTopWidth: 3 }]}>
+          <View style={styles.cardRow}>
+            <Text style={styles.cardLabel}>ACTIVE PASSES</Text>
+            <View style={[styles.cardIconBadge, { backgroundColor: '#38bdf815' }]}>
+              <Ionicons name="qr-code" size={14} color="#38bdf8" />
+            </View>
+          </View>
+          <CountUp target={activePasses} style={styles.cardValue} />
+          <Text style={styles.cardTrendGreen}>▲ {activePasses && activePasses > 0 ? 'Ready' : 'None'} <Text style={styles.cardTrendSub}>to tap</Text></Text>
         </View>
-        <View style={[styles.statBox, { borderColor: '#8b5cf640' }]}>
-          <Ionicons name="receipt-outline" size={18} color="#8b5cf6" style={{ marginBottom: 6 }} />
-          <CountUp target={totalTrips} />
-          <Text style={styles.statLabel}>Total Trips</Text>
+
+        <View style={[styles.dashboardCard, { borderTopColor: '#8b5cf6', borderTopWidth: 3 }]}>
+          <View style={styles.cardRow}>
+            <Text style={styles.cardLabel}>TOTAL TRIPS</Text>
+            <View style={[styles.cardIconBadge, { backgroundColor: '#8b5cf615' }]}>
+              <Ionicons name="receipt" size={14} color="#8b5cf6" />
+            </View>
+          </View>
+          <CountUp target={totalTrips} style={styles.cardValue} />
+          <Text style={styles.cardTrendGreen}>▲ 12.0% <Text style={styles.cardTrendSub}>crossings</Text></Text>
         </View>
+
+        <View style={[styles.dashboardCard, { borderTopColor: '#10b981', borderTopWidth: 3 }]}>
+          <View style={styles.cardRow}>
+            <Text style={styles.cardLabel}>CO2 SAVED</Text>
+            <View style={[styles.cardIconBadge, { backgroundColor: '#10b98115' }]}>
+              <Ionicons name="leaf" size={14} color="#10b981" />
+            </View>
+          </View>
+          <Text style={styles.cardValue}>12.4 kg</Text>
+          <Text style={styles.cardTrendGreen}>▲ 14.3% <Text style={styles.cardTrendSub}>eco score</Text></Text>
+        </View>
+
+        <View style={[styles.dashboardCard, { borderTopColor: '#ec4899', borderTopWidth: 3 }]}>
+          <View style={styles.cardRow}>
+            <Text style={styles.cardLabel}>TIME SAVED</Text>
+            <View style={[styles.cardIconBadge, { backgroundColor: '#ec489915' }]}>
+              <Ionicons name="flash" size={14} color="#ec4899" />
+            </View>
+          </View>
+          <Text style={styles.cardValue}>1.8 hrs</Text>
+          <Text style={styles.cardTrendGreen}>▲ 24 min <Text style={styles.cardTrendSub}>via express</Text></Text>
+        </View>
+      </Animated.View>
+
+      {/* Render Dynamic Smooth Curve Graph */}
+      <Animated.View style={[{ marginBottom: 28 }, { opacity: statsAnim }]}>
+        <DynamicDashboardChart 
+          title="Toll Spend Activity"
+          subtitle="Monthly crossing BDT spend flow — today"
+          points={[
+            { label: 'Jan', value: 850, subValue: '2 Trips' },
+            { label: 'Feb', value: 1200, subValue: '4 Trips' },
+            { label: 'Mar', value: 950, subValue: '3 Trips' },
+            { label: 'Apr', value: 1800, subValue: '6 Trips' },
+            { label: 'May', value: 2400, subValue: '8 Trips' },
+            { label: 'Jun', value: 1500, subValue: '5 Trips' }
+          ]}
+          accentColor="#3b82f6"
+          valuePrefix="৳"
+        />
       </Animated.View>
 
       {/* NEW: Live Bridge suspension alert warning banner */}
@@ -247,10 +300,15 @@ const styles = StyleSheet.create({
   profilePlaceholder: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#1e293b', borderWidth: 1.5, borderColor: '#334155', justifyContent: 'center', alignItems: 'center' },
   logoutBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#ef444415', borderWidth: 1, borderColor: '#ef444430', justifyContent: 'center', alignItems: 'center' },
   
-  statsContainer: { flexDirection: 'row', gap: 14, marginBottom: 24 },
-  statBox: { flex: 1, backgroundColor: '#1e293b', padding: 18, borderRadius: 20, alignItems: 'center', borderWidth: 1, borderColor: '#38bdf820' },
-  statValue: { fontSize: 34, fontWeight: '900', color: '#38bdf8' },
-  statLabel: { fontSize: 12, color: '#94a3b8', marginTop: 4, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
+  dashboardGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 20 },
+  dashboardCard: { width: '48%', backgroundColor: '#1e293b', padding: 14, borderRadius: 20, borderWidth: 1, borderColor: '#334155', minHeight: 110, justifyContent: 'space-between', marginBottom: 12 },
+  cardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  cardLabel: { fontSize: 9, color: '#64748b', fontWeight: '800', letterSpacing: 0.5 },
+  cardIconBadge: { width: 26, height: 26, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+  cardValue: { fontSize: 18, color: '#fff', fontWeight: '900', marginTop: 8, fontFamily: 'monospace' },
+  cardTrendGreen: { fontSize: 9, color: '#10b981', fontWeight: '700', marginTop: 4 },
+  cardTrendSub: { color: '#64748b', fontWeight: '500' },
+  statValue: { fontSize: 18, color: '#fff', fontWeight: '900' },
   
   // Warning Banner Styles
   warningBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f59e0b10', borderRadius: 20, borderWidth: 1, borderColor: '#f59e0b25', padding: 16, marginBottom: 28 },
@@ -265,4 +323,4 @@ const styles = StyleSheet.create({
   arrowBadge: { alignSelf: 'flex-start', padding: 4, borderRadius: 8, marginTop: 10 },
   itemTitle: { fontSize: 15, fontWeight: '700', color: '#fff', marginBottom: 3 },
   itemSubtitle: { fontSize: 11, color: '#64748b', lineHeight: 15 },
-});
+}) as any;
