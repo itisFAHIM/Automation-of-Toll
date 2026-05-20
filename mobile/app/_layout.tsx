@@ -1,14 +1,16 @@
 import { Stack, usePathname } from 'expo-router';
 import { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, Alert } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import GlobalLoader from '../components/GlobalLoader';
+import { NotificationProvider, useNotification } from '../components/NotificationProvider';
 
-export default function RootLayout() {
+function RootLayoutContent() {
   const pathname = usePathname();
   const [isNavigating, setIsNavigating] = useState(false);
   const pathHistory = useRef<string[]>([]);
   const isInitialMount = useRef(true);
   const notifiedDisables = useRef<Set<number>>(new Set());
+  const { showNotification } = useNotification();
 
   useEffect(() => {
     const pollDisables = async () => {
@@ -20,10 +22,10 @@ export default function RootLayout() {
            for (const item of disables) {
                if (!notifiedDisables.current.has(item.id)) {
                    notifiedDisables.current.add(item.id);
-                   Alert.alert(
+                   showNotification(
                        '⚠️ Service Update Alert',
-                       `Admin has restricted the ${item.vehicle_type.toUpperCase()} service for ${item.bridge_name}.\nYou have 1 hour remaining to pass via this toll.`,
-                       [{text: 'Understood'}]
+                       `Admin restricted ${item.vehicle_type.toUpperCase()}s at ${item.bridge_name}. 1h left to pass.`,
+                       'warning'
                    );
                }
            }
@@ -69,6 +71,18 @@ export default function RootLayout() {
       </Stack>
       {isNavigating && <GlobalLoader />}
     </View>
+  );
+}
+
+import { ThemeProvider } from '../components/ThemeContext';
+
+export default function RootLayout() {
+  return (
+    <ThemeProvider>
+      <NotificationProvider>
+        <RootLayoutContent />
+      </NotificationProvider>
+    </ThemeProvider>
   );
 }
 

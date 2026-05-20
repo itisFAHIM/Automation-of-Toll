@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, Image, TouchableOpacity, Alert, Animated } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 
 type TollPass = { 
   id: number; 
@@ -19,6 +21,7 @@ type TollPass = {
 };
 
 function ActivePassCard({ item }: { item: TollPass }) {
+  const router = useRouter();
   const [timeLeft, setTimeLeft] = useState<string>('00h 00m 00s');
   const [percentLeft, setPercentLeft] = useState<number>(1);
   const colorAnim = useRef(new Animated.Value(0)).current;
@@ -138,6 +141,26 @@ function ActivePassCard({ item }: { item: TollPass }) {
         </Animated.View>
         <Text style={styles.watermarkText}>SCAN AT TOLL BOOTH</Text>
       </View>
+
+      {/* NFC simulated trigger button */}
+      <TouchableOpacity 
+        style={styles.nfcButton} 
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          router.push({
+            pathname: '/express-pass',
+            params: {
+              token: item.token,
+              bridge: item.bridge,
+              vehicle: item.vehicle,
+              txn: item.transaction_id
+            }
+          });
+        }}
+      >
+        <Ionicons name="wifi" size={18} color="#fff" style={{ transform: [{ rotate: '90deg' }], marginRight: 8 }} />
+        <Text style={styles.nfcButtonText}>NFC CONTACTLESS TAP</Text>
+      </TouchableOpacity>
 
       {/* Expiry Ticker Panel */}
       <View style={styles.tickerPanel}>
@@ -312,4 +335,6 @@ const styles = StyleSheet.create({
   tickerValue: { color: '#fff', fontSize: 26, fontWeight: '900', letterSpacing: 0.5, fontFamily: 'monospace' },
   progressBarBg: { height: 6, backgroundColor: '#1e293b', borderRadius: 3, marginTop: 12, overflow: 'hidden' },
   progressBarFill: { height: '100%', borderRadius: 3 },
+  nfcButton: { backgroundColor: '#ec4899', height: 48, borderRadius: 16, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 16, borderWidth: 1, borderColor: '#ec489950' },
+  nfcButtonText: { color: '#fff', fontSize: 13, fontWeight: '800', letterSpacing: 0.5 },
 });

@@ -82,8 +82,12 @@ class ProcessPaymentAPIView(APIView):
             return Response({"error": "Toll rate not set for this vehicle type on this bridge"}, status=400)
     
     def get(self, request):
-        # Allow viewing payment history
-        payments = Payment.objects.filter(toll_pass__user=request.user).order_by('-paid_at')
+        # Allow viewing payment history - Admin/Employee sees all, Driver sees own
+        is_staff = hasattr(request.user, 'profile') and request.user.profile.role in ['admin', 'employee']
+        if is_staff:
+            payments = Payment.objects.all().order_by('-paid_at')
+        else:
+            payments = Payment.objects.filter(toll_pass__user=request.user).order_by('-paid_at')
         
         from django.utils import timezone
         now = timezone.now()
@@ -96,10 +100,15 @@ class ProcessPaymentAPIView(APIView):
                 tpass.status = 'expired'
                 tpass.save(update_fields=['status'])
 
+            driver_name = f"{tpass.user.first_name} {tpass.user.last_name}".strip()
+            if not driver_name:
+                driver_name = tpass.user.username
+
             data.append({
                 "id": p.id,
                 "bridge": tpass.bridge.name,
                 "vehicle": tpass.vehicle.registration_number,
+                "driver_name": driver_name,
                 "amount": p.amount,
                 "payment_method": p.payment_method,
                 "status": p.status,

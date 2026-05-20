@@ -4,9 +4,12 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
+import * as Haptics from 'expo-haptics';
+import { useAppTheme, ACCENTS, AccentName } from '../components/ThemeContext';
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const { accent, setAccentColor } = useAppTheme();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [firstName, setFirstName] = useState('');
@@ -111,7 +114,7 @@ export default function ProfileScreen() {
   if (loading) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color="#3b82f6" />
+        <ActivityIndicator size="large" color={accent.primary} />
       </View>
     );
   }
@@ -129,13 +132,13 @@ export default function ProfileScreen() {
       <View style={styles.avatarSection}>
         <TouchableOpacity style={styles.avatarWrapper} onPress={pickImage}>
           {profilePicture ? (
-            <Image source={{ uri: profilePicture }} style={styles.avatarImage} />
+            <Image source={{ uri: profilePicture }} style={[styles.avatarImage, { borderColor: accent.primary }]} />
           ) : (
-            <View style={styles.avatarPlaceholder}>
+            <View style={[styles.avatarPlaceholder, { borderColor: accent.primary }]}>
               <Ionicons name="person" size={60} color="#64748b" />
             </View>
           )}
-          <View style={styles.editIconBadge}>
+          <View style={[styles.editIconBadge, { backgroundColor: accent.primary }]}>
             <Ionicons name="camera" size={18} color="#fff" />
           </View>
         </TouchableOpacity>
@@ -179,7 +182,34 @@ export default function ProfileScreen() {
         </View>
       </View>
 
-      <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={saving}>
+      {/* Theme Accent Picker */}
+      <View style={styles.themeSection}>
+        <Text style={styles.themeTitle}>Accent Theme</Text>
+        <Text style={styles.themeSub}>Personalize your dashboard and contactless pass accent color</Text>
+        <View style={styles.accentGrid}>
+          {(Object.keys(ACCENTS) as AccentName[]).map((name) => {
+            const config = ACCENTS[name];
+            const isSelected = accent.name === name;
+            return (
+              <TouchableOpacity
+                key={name}
+                activeOpacity={0.8}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setAccentColor(name);
+                }}
+                style={[
+                  styles.accentCircle,
+                  { backgroundColor: config.primary },
+                  isSelected && styles.accentCircleSelected
+                ]}
+              />
+            );
+          })}
+        </View>
+      </View>
+
+      <TouchableOpacity style={[styles.saveBtn, { backgroundColor: accent.primary }]} onPress={handleSave} disabled={saving}>
         {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Save Changes</Text>}
       </TouchableOpacity>
     </ScrollView>
@@ -277,14 +307,52 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   saveBtn: {
-    backgroundColor: '#10b981',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
+    marginTop: 10
   },
   saveBtnText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '700',
   },
+  themeSection: {
+    marginBottom: 40,
+    backgroundColor: '#1e293b',
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#334155'
+  },
+  themeTitle: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5
+  },
+  themeSub: {
+    color: '#64748b',
+    fontSize: 12,
+    marginTop: 4,
+    lineHeight: 18
+  },
+  accentGrid: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 18
+  },
+  accentCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 2,
+    borderColor: '#1e293b'
+  },
+  accentCircleSelected: {
+    borderColor: '#fff',
+    borderWidth: 3,
+    transform: [{ scale: 1.15 }]
+  }
 });

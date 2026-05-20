@@ -146,7 +146,7 @@ export default function AdminDashboard() {
     { id: 'employees', title: 'Employees', subtitle: 'Manage staff', icon: 'people-circle' as const, color: '#3b82f6', route: '/(admin-tabs)/employees' as any, badge: pendingEmployees ?? 0 },
     { id: 'bridges', title: 'Toll Plazas', subtitle: 'Control gates & rates', icon: 'business' as const, color: '#10b981', route: '/(admin-tabs)/bridges' as any, badge: 0 },
     { id: 'approvals', title: 'Vehicle Approvals', subtitle: `${pendingVehicles ?? 0} pending requests`, icon: 'clipboard' as const, color: '#f59e0b', route: '/(admin-tabs)/vehicle-approvals' as any, badge: pendingVehicles ?? 0 },
-    { id: 'revenue', title: 'Revenue', subtitle: 'Coming soon', icon: 'cash' as const, color: '#64748b', route: null, badge: 0 },
+    { id: 'revenue', title: 'Revenue Hub', subtitle: 'Audits & collection logs', icon: 'cash' as const, color: '#ec4899', route: '/(admin-tabs)/revenue' as any, badge: 0 },
   ];
 
   return (
