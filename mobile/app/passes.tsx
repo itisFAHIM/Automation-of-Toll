@@ -13,7 +13,7 @@ export default function PassesScreen() {
     setLoading(true);
     try {
       const token = await AsyncStorage.getItem('token');
-      const res = await fetch('http://192.168.0.102:8000/api/payments/', {
+      const res = await fetch('http://192.168.0.106:8000/api/payments/', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -32,7 +32,7 @@ export default function PassesScreen() {
   const requestRenewal = async (tokenString: string) => {
     try {
       const t = await AsyncStorage.getItem('token');
-      const res = await fetch('http://192.168.0.102:8000/api/passes/request-renewal/', {
+      const res = await fetch('http://192.168.0.106:8000/api/passes/request-renewal/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${t}` },
         body: JSON.stringify({ token: tokenString })

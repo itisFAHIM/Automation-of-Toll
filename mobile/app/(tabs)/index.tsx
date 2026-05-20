@@ -78,8 +78,8 @@ export default function DashboardScreen() {
       const token = await AsyncStorage.getItem('token');
       if (!token) return;
       const [paymentsRes, profileRes] = await Promise.all([
-        fetch('http://192.168.0.102:8000/api/payments/', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('http://192.168.0.102:8000/api/users/profile/', { headers: { 'Authorization': `Bearer ${token}` } })
+        fetch('http://192.168.0.106:8000/api/payments/', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('http://192.168.0.106:8000/api/users/profile/', { headers: { 'Authorization': `Bearer ${token}` } })
       ]);
       if (profileRes.ok) {
         const profileData = await profileRes.json();

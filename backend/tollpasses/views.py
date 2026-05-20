@@ -26,14 +26,18 @@ class VerifyPassAPIView(APIView):
                 return Response({
                     "status": "error",
                     "message": "Pass has already been used!",
-                    "vehicle": toll_pass.vehicle.registration_number
+                    "vehicle": toll_pass.vehicle.registration_number,
+                    "vehicle_type": toll_pass.vehicle.vehicle_type.name,
+                    "vehicle_icon": toll_pass.vehicle.vehicle_type.icon
                 }, status=400)
 
             if timezone.now() > toll_pass.expires_at:
                 return Response({
                     "status": "error",
                     "message": "Pass is expired!",
-                    "vehicle": toll_pass.vehicle.registration_number
+                    "vehicle": toll_pass.vehicle.registration_number,
+                    "vehicle_type": toll_pass.vehicle.vehicle_type.name,
+                    "vehicle_icon": toll_pass.vehicle.vehicle_type.icon
                 }, status=400)
 
             # Mark as used
@@ -45,6 +49,8 @@ class VerifyPassAPIView(APIView):
                 "status": "success",
                 "message": "Pass Verified & Marked as Used!",
                 "vehicle": toll_pass.vehicle.registration_number,
+                "vehicle_type": toll_pass.vehicle.vehicle_type.name,
+                "vehicle_icon": toll_pass.vehicle.vehicle_type.icon,
                 "bridge": toll_pass.bridge.name
             }, status=200)
 

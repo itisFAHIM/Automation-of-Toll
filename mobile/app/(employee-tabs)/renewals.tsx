@@ -22,7 +22,7 @@ export default function RenewalsDesk() {
     setLoading(true);
     try {
       const token = await AsyncStorage.getItem('token');
-      const res = await fetch('http://192.168.0.102:8000/api/passes/pending-renewals/', {
+      const res = await fetch('http://192.168.0.106:8000/api/passes/pending-renewals/', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -43,7 +43,7 @@ export default function RenewalsDesk() {
   const handleAction = async (tokenString: string, action: 'approve' | 'reject') => {
     try {
       const t = await AsyncStorage.getItem('token');
-      const res = await fetch('http://192.168.0.102:8000/api/passes/approve-renewal/', {
+      const res = await fetch('http://192.168.0.106:8000/api/passes/approve-renewal/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${t}` },
         body: JSON.stringify({ token: tokenString, action })

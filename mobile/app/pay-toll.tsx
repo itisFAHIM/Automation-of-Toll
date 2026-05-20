@@ -84,9 +84,9 @@ export default function PayTollScreen() {
       try {
         const token = await AsyncStorage.getItem('token');
         const [bridgeRes, vehicleRes, typeRes] = await Promise.all([
-          fetch('http://192.168.0.102:8000/api/bridges/'),
-          fetch('http://192.168.0.102:8000/api/vehicles/', { headers: { 'Authorization': `Bearer ${token}` } }),
-          fetch('http://192.168.0.102:8000/api/vehicles/types/')
+          fetch('http://192.168.0.106:8000/api/bridges/'),
+          fetch('http://192.168.0.106:8000/api/vehicles/', { headers: { 'Authorization': `Bearer ${token}` } }),
+          fetch('http://192.168.0.106:8000/api/vehicles/types/')
         ]);
         const bridgeData = await bridgeRes.json();
         const vehicleData = await vehicleRes.json();
@@ -105,7 +105,7 @@ export default function PayTollScreen() {
       setTollAmount('Calculating...');
       amountAnim.setValue(0);
       AsyncStorage.getItem('token').then(token => {
-        fetch(`http://192.168.0.102:8000/api/bridges/calculate/?bridge_id=${selectedBridge}&vehicle_id=${selectedVehicle}`, {
+        fetch(`http://192.168.0.106:8000/api/bridges/calculate/?bridge_id=${selectedBridge}&vehicle_id=${selectedVehicle}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         })
           .then(r => r.json())
@@ -130,7 +130,7 @@ export default function PayTollScreen() {
     setProcessing(true);
     try {
       const token = await AsyncStorage.getItem('token');
-      const res = await fetch('http://192.168.0.102:8000/api/payments/', {
+      const res = await fetch('http://192.168.0.106:8000/api/payments/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ bridge_id: selectedBridge, vehicle_id: selectedVehicle, payment_method: selectedMethod })

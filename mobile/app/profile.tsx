@@ -22,7 +22,7 @@ export default function ProfileScreen() {
   const fetchProfile = async () => {
     try {
       const token = await AsyncStorage.getItem('token');
-      const res = await fetch('http://192.168.0.102:8000/api/users/profile/', {
+      const res = await fetch('http://192.168.0.106:8000/api/users/profile/', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -82,7 +82,7 @@ export default function ProfileScreen() {
         } as any);
       }
 
-      const res = await fetch('http://192.168.0.102:8000/api/users/profile/', {
+      const res = await fetch('http://192.168.0.106:8000/api/users/profile/', {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`

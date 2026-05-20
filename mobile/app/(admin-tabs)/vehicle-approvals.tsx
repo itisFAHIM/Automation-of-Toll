@@ -6,7 +6,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 
-const API = 'http://192.168.0.102:8000/api';
+const API = 'http://192.168.0.106:8000/api';
 
 type PendingVehicle = {
   id: number;

@@ -41,7 +41,7 @@ export default function LoginScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setLoading(true);
     try {
-      const response = await fetch('http://192.168.0.102:8000/api/token/', {
+      const response = await fetch('http://192.168.0.106:8000/api/token/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
@@ -49,7 +49,7 @@ export default function LoginScreen() {
       const data = await response.json();
       if (response.ok) {
         await AsyncStorage.setItem('token', data.access);
-        const profileRes = await fetch('http://192.168.0.102:8000/api/users/profile/', {
+        const profileRes = await fetch('http://192.168.0.106:8000/api/users/profile/', {
           headers: { 'Authorization': `Bearer ${data.access}` }
         });
         const profileData = await profileRes.json();

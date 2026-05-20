@@ -55,7 +55,7 @@ export default function ManageBridgesScreen() {
 
   const fetchTypes = async () => {
     try {
-      const res = await fetch('http://192.168.0.102:8000/api/vehicles/types/');
+      const res = await fetch('http://192.168.0.106:8000/api/vehicles/types/');
       const data = await res.json();
       setVehicleTypes(Array.isArray(data) ? data : []);
     } catch(e){}
@@ -64,7 +64,7 @@ export default function ManageBridgesScreen() {
   const fetchBridges = async () => {
     try {
       const token = await AsyncStorage.getItem('token');
-      const res = await fetch('http://192.168.0.102:8000/api/bridges/', {
+      const res = await fetch('http://192.168.0.106:8000/api/bridges/', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -80,7 +80,7 @@ export default function ManageBridgesScreen() {
     if (!newBridgeName.trim()) return Alert.alert('Error', 'Name is required');
     try {
       const token = await AsyncStorage.getItem('token');
-      const res = await fetch(`http://192.168.0.102:8000/api/bridges/`, {
+      const res = await fetch(`http://192.168.0.106:8000/api/bridges/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ name: newBridgeName, is_active: false })
@@ -91,7 +91,7 @@ export default function ManageBridgesScreen() {
         const ratePromises = vehicleTypes.map(async (vType) => {
            const rateData = newBridgeRates[vType.name];
            if (rateData && rateData.allowed && rateData.amount) {
-               await fetch(`http://192.168.0.102:8000/api/bridges/${newlyCreatedBridge.id}/rates/`, {
+               await fetch(`http://192.168.0.106:8000/api/bridges/${newlyCreatedBridge.id}/rates/`, {
                  method: 'POST',
                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                  body: JSON.stringify({ bridge: newlyCreatedBridge.id, vehicle_type: vType.name, amount: rateData.amount })
@@ -114,7 +114,7 @@ export default function ManageBridgesScreen() {
     setBridges(prev => prev.map(b => b.id === id ? { ...b, is_active: !currentStatus } : b));
     try {
       const token = await AsyncStorage.getItem('token');
-      const res = await fetch(`http://192.168.0.102:8000/api/bridges/${id}/`, {
+      const res = await fetch(`http://192.168.0.106:8000/api/bridges/${id}/`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ is_active: !currentStatus })
@@ -136,7 +136,7 @@ export default function ManageBridgesScreen() {
     setInputs({});
     try {
       const token = await AsyncStorage.getItem('token');
-      const res = await fetch(`http://192.168.0.102:8000/api/bridges/${bridge.id}/rates/`, {
+      const res = await fetch(`http://192.168.0.106:8000/api/bridges/${bridge.id}/rates/`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -157,7 +157,7 @@ export default function ManageBridgesScreen() {
     if (!amount) return Alert.alert('Error', 'Please enter an amount.');
     try {
       const token = await AsyncStorage.getItem('token');
-      const res = await fetch(`http://192.168.0.102:8000/api/bridges/${selectedBridge.id}/rates/`, {
+      const res = await fetch(`http://192.168.0.106:8000/api/bridges/${selectedBridge.id}/rates/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ bridge: selectedBridge.id, vehicle_type, amount })
@@ -174,7 +174,7 @@ export default function ManageBridgesScreen() {
     if (!amount) return Alert.alert('Error', 'Amount cannot be empty.');
     try {
       const token = await AsyncStorage.getItem('token');
-      const res = await fetch(`http://192.168.0.102:8000/api/bridges/rates/${rateId}/`, {
+      const res = await fetch(`http://192.168.0.106:8000/api/bridges/rates/${rateId}/`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ amount })
@@ -189,7 +189,7 @@ export default function ManageBridgesScreen() {
   const handleDeleteRate = async (rateId: number, vehicle_type: string) => {
     try {
       const token = await AsyncStorage.getItem('token');
-      const res = await fetch(`http://192.168.0.102:8000/api/bridges/rates/${rateId}/`, {
+      const res = await fetch(`http://192.168.0.106:8000/api/bridges/rates/${rateId}/`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });

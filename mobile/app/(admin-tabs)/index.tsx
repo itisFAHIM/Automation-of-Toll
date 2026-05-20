@@ -92,10 +92,10 @@ export default function AdminDashboard() {
       if (!token) return;
 
       const [profileRes, bridgesRes, employeesRes, vehiclesRes] = await Promise.all([
-        fetch('http://192.168.0.102:8000/api/users/profile/', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('http://192.168.0.102:8000/api/bridges/', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('http://192.168.0.102:8000/api/users/pending-employees/', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('http://192.168.0.102:8000/api/vehicles/pending/', { headers: { 'Authorization': `Bearer ${token}` } })
+        fetch('http://192.168.0.106:8000/api/users/profile/', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('http://192.168.0.106:8000/api/bridges/', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('http://192.168.0.106:8000/api/users/pending-employees/', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('http://192.168.0.106:8000/api/vehicles/pending/', { headers: { 'Authorization': `Bearer ${token}` } })
       ]);
 
       if (profileRes.ok) {

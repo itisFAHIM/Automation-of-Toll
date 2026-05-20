@@ -19,7 +19,7 @@ export default function ManageVehicleTypesScreen() {
 
   const fetchTypes = async () => {
     try {
-      const res = await fetch('http://192.168.0.102:8000/api/vehicles/types/');
+      const res = await fetch('http://192.168.0.106:8000/api/vehicles/types/');
       const data = await res.json();
       setTypes(Array.isArray(data) ? data : []);
     } catch (e) {} finally { setLoading(false); }
@@ -29,7 +29,7 @@ export default function ManageVehicleTypesScreen() {
     if (!newName.trim()) return Alert.alert('Error', 'Name is required');
     try {
       const token = await AsyncStorage.getItem('token');
-      const res = await fetch('http://192.168.0.102:8000/api/vehicles/types/', {
+      const res = await fetch('http://192.168.0.106:8000/api/vehicles/types/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ name: newName.toLowerCase(), icon: newIcon })
@@ -46,7 +46,7 @@ export default function ManageVehicleTypesScreen() {
       { text: 'Delete', style: 'destructive', onPress: async () => {
         try {
           const token = await AsyncStorage.getItem('token');
-          await fetch(`http://192.168.0.102:8000/api/vehicles/types/${id}/`, {
+          await fetch(`http://192.168.0.106:8000/api/vehicles/types/${id}/`, {
             method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` }
           });
           fetchTypes();

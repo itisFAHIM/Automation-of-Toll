@@ -44,7 +44,7 @@ export default function RegisterScreen() {
 
     setLoading(true);
     try {
-      const response = await fetch('http://192.168.0.102:8000/api/users/request-otp/', {
+      const response = await fetch('http://192.168.0.106:8000/api/users/request-otp/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: form.email, username: form.username })
@@ -89,7 +89,7 @@ export default function RegisterScreen() {
           formData.append('nid_image', { uri, name: filename, type } as any);
         }
 
-        const response = await fetch('http://192.168.0.102:8000/api/users/register/', {
+        const response = await fetch('http://192.168.0.106:8000/api/users/register/', {
           method: 'POST',
           body: formData,
         });

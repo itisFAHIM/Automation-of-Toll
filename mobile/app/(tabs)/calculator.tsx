@@ -8,7 +8,7 @@ import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 
-const API_BASE_URL = 'http://192.168.0.102:8000/api';
+const API_BASE_URL = 'http://192.168.0.106:8000/api';
 
 interface District {
   id: number;

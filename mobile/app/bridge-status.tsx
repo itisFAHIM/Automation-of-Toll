@@ -69,7 +69,7 @@ export default function BridgeStatusScreen() {
 
   const fetchBridges = async () => {
     try {
-      const res = await fetch('http://192.168.0.102:8000/api/bridges/');
+      const res = await fetch('http://192.168.0.106:8000/api/bridges/');
       const data = await res.json();
       setBridges(Array.isArray(data) ? data : []);
     } catch (err) {

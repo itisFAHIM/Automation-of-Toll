@@ -123,8 +123,8 @@ export default function EmployeeDashboard() {
       if (!token) return;
       
       const [profileRes, bridgesRes] = await Promise.all([
-        fetch('http://192.168.0.102:8000/api/users/profile/', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('http://192.168.0.102:8000/api/bridges/', { headers: { 'Authorization': `Bearer ${token}` } })
+        fetch('http://192.168.0.106:8000/api/users/profile/', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('http://192.168.0.106:8000/api/bridges/', { headers: { 'Authorization': `Bearer ${token}` } })
       ]);
       
       if (profileRes.ok) {
@@ -167,7 +167,7 @@ export default function EmployeeDashboard() {
     
     try {
       const token = await AsyncStorage.getItem('token');
-      const res = await fetch(`http://192.168.0.102:8000/api/bridges/${id}/`, {
+      const res = await fetch(`http://192.168.0.106:8000/api/bridges/${id}/`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ is_active: isNowActive })

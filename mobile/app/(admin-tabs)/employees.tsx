@@ -16,7 +16,7 @@ export default function ManageEmployeesScreen() {
   const fetchPending = async () => {
     try {
       const token = await AsyncStorage.getItem('token');
-      const res = await fetch('http://192.168.0.102:8000/api/users/pending-employees/', {
+      const res = await fetch('http://192.168.0.106:8000/api/users/pending-employees/', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -31,7 +31,7 @@ export default function ManageEmployeesScreen() {
   const handleApprove = async (userId: number) => {
     try {
       const token = await AsyncStorage.getItem('token');
-      const res = await fetch(`http://192.168.0.102:8000/api/users/approve-employee/${userId}/`, {
+      const res = await fetch(`http://192.168.0.106:8000/api/users/approve-employee/${userId}/`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });

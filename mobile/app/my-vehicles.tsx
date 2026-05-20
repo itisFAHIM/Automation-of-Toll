@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 
-const API = 'http://192.168.0.102:8000/api';
+const API = 'http://192.168.0.106:8000/api';
 
 type Vehicle = {
   id: number;

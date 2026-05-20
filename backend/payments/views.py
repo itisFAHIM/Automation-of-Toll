@@ -50,9 +50,9 @@ class ProcessPaymentAPIView(APIView):
             # Generate QR Code
             qr = qrcode.make(f"TollPass Token: {toll_pass.token}")
             qr_io = BytesIO()
-            qr.save(qr_io, format='PNG')
+            qr.save(qr_io, format='PNG')  # type: ignore
             qr_file = ContentFile(qr_io.getvalue(), name=f"{toll_pass.token}.png")
-            toll_pass.qr_code.save(f"{toll_pass.token}.png", qr_file)
+            toll_pass.qr_code.save(f"{toll_pass.token}.png", qr_file)  # type: ignore
             toll_pass.save()
 
             # 2. Create the Payment Record

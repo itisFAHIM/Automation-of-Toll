@@ -13,7 +13,7 @@ export default function RootLayout() {
   useEffect(() => {
     const pollDisables = async () => {
        try {
-           const res = await fetch('http://192.168.0.102:8000/api/bridges/recent-disables/');
+           const res = await fetch('http://192.168.0.106:8000/api/bridges/recent-disables/');
            if (!res.ok) return;
            const disables = await res.json();
            
