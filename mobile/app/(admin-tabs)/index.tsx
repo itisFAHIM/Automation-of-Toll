@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
+import TelemetryChart from '@/components/TelemetryChart';
 
 function CountUp({ target }: { target: number | null }) {
   const [display, setDisplay] = useState(0);
@@ -191,6 +192,10 @@ export default function AdminDashboard() {
           <Text style={styles.statLabel}>Pending Vehicles</Text>
         </View>
       </Animated.View>
+
+      <View style={{ marginBottom: 32 }}>
+        <TelemetryChart />
+      </View>
 
       <Text style={styles.sectionTitle}>System Overview</Text>
 
